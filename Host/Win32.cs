@@ -48,6 +48,36 @@ internal static class Win32
     public static extern bool GetCursorPos(out PointI lpPoint);
 
     public const int VkLButton = 0x01;
+    public const int DwmwaCloaked = 14;
+
+    public delegate bool EnumWindowsProc(nint hWnd, nint lParam);
+
+    [DllImport("user32.dll")]
+    public static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, nint lParam);
+
+    [DllImport("user32.dll")]
+    public static extern bool IsWindowVisible(nint hWnd);
+
+    [DllImport("user32.dll")]
+    public static extern bool IsIconic(nint hWnd);
+
+    [DllImport("user32.dll")]
+    public static extern bool IsZoomed(nint hWnd);
+
+    [DllImport("user32.dll")]
+    public static extern bool GetWindowRect(nint hWnd, out RectI lpRect);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern int GetClassName(nint hWnd, System.Text.StringBuilder lpClassName, int nMaxCount);
+
+    [DllImport("dwmapi.dll")]
+    public static extern int DwmGetWindowAttribute(nint hWnd, int dwAttribute, out int pvAttribute, int cbAttribute);
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RectI
+    {
+        public int Left, Top, Right, Bottom;
+    }
 
     [StructLayout(LayoutKind.Sequential)]
     public struct PointI

@@ -15,16 +15,30 @@ public sealed class GameWorld
     public double Alpha { get; private set; } = 1;
     public bool Interpolate = true;
     public bool ShowSelectionHalo;
+    public bool ShowNav;
+    public bool ShowHash;
+    public bool CollideWindows = true;
+    public bool CollideCursor = true;
+    public bool ArenaClosing;
+    public bool ExitRequested;
+    public nint OverlayHwnd;
     public double DrawAlpha => Interpolate ? Alpha : 1;
 
     public DebugState Debug { get; } = new();
+    public NotificationSystem Notifications { get; } = new();
     public CursorState Cursor { get; } = new();
+    public WindowObstacles Windows { get; } = new();
+    internal NavGrid Nav { get; } = new();
 
     private readonly Random _rng = new();
     private readonly ShapeSpawner _spawner;
     private readonly CollisionSystem _collisions = new();
     private double _accumulator;
     private int _nextTankId = 1;
+    private bool _closersRetreating;
+    private double _closerLinger = -1;
+    private double _exitDelay;
+    private double _bossSpawnIn;
     private string? _pendingClassName;
 
     public GameWorld()
@@ -42,7 +56,14 @@ public sealed class GameWorld
         _spawner.Reset();
         _accumulator = 0;
         Alpha = 1;
+        ArenaClosing = false;
+        ExitRequested = false;
+        _closersRetreating = false;
+        _closerLinger = -1;
+        _exitDelay = 0;
+        Notifications.Clear();
         _nextTankId = 1;
+        ScheduleBossSpawn();
         Selected = SpawnTank(startX, startY);
         _spawner.Fill(Shapes, Width, Height, 18);
         Debug.Flash("Reset");
@@ -50,7 +71,12 @@ public sealed class GameWorld
 
     public TankEntity? SpawnTank(double? x = null, double? y = null)
     {
-        if (Tanks.Count >= MaxTanks)
+        if (ArenaClosing)
+        {
+            Debug.Flash("Arena closing");
+            return null;
+        }
+        if (PlayerTankCount() >= MaxTanks)
         {
             Debug.Flash("Tank limit");
             return null;
@@ -75,6 +101,213 @@ public sealed class GameWorld
         return tank;
     }
 
+    public void CloseArena()
+    {
+        if (ArenaClosing || ExitRequested)
+            return;
+        ArenaClosing = true;
+        _closersRetreating = false;
+        _closerLinger = -1;
+        _exitDelay = 0;
+        Notifications.Arena("Arena closed: No players can join", 8, "arena_closed");
+        Debug.Flash("Arena closing", 2.2);
+        var count = Math.Clamp(3 + PlayerTankCount(), 4, 8);
+        for (var i = 0; i < count; i++)
+            SpawnCloser(i);
+    }
+
+    private int PlayerTankCount()
+    {
+        var n = 0;
+        foreach (var t in Tanks)
+        {
+            if (!t.IsArenaCloser && !t.IsBoss)
+                n++;
+        }
+        return n;
+    }
+
+    private int LivingPlayers()
+    {
+        var n = 0;
+        foreach (var t in Tanks)
+        {
+            if (!t.IsArenaCloser && !t.IsBoss && t.Alive)
+                n++;
+        }
+        return n;
+    }
+
+    private int LivingShapes()
+    {
+        var n = 0;
+        foreach (var s in Shapes)
+        {
+            if (!s.Destroy.Active)
+                n++;
+        }
+        return n;
+    }
+
+    private bool HasLivingBoss()
+    {
+        foreach (var t in Tanks)
+        {
+            if (t.IsBoss && (t.Alive || t.Destroy.Active))
+                return true;
+        }
+        return false;
+    }
+
+    public TankEntity? SpawnBoss(TankId? kind = null)
+    {
+        if (ArenaClosing)
+        {
+            Debug.Flash("Arena closing");
+            return null;
+        }
+        if (HasLivingBoss())
+        {
+            Debug.Flash("Boss already out");
+            return null;
+        }
+
+        var id = kind ?? TankCatalog.Bosses[_rng.Next(TankCatalog.Bosses.Length)].Id;
+        if (!TankCatalog.TryGet(id, out var def) || !def.IsBoss)
+        {
+            Debug.Flash("Unknown boss");
+            return null;
+        }
+
+        var tank = new TankEntity
+        {
+            Id = _nextTankId++,
+            IsBoss = true,
+            BossAltName = def.BossAltName,
+            BossXp = 3000,
+            Level = 75,
+            Fill = BossFill(id),
+            Absorption = 0.05,
+            PushFactor = 16,
+            Mass = 40
+        };
+        tank.X = 120 + _rng.NextDouble() * Math.Max(80, Width - 240);
+        tank.Y = 120 + _rng.NextDouble() * Math.Max(80, Height - 240);
+        for (var s = 0; s < 8; s++)
+            tank.Stats[s] = s == TankStats.Reload ? 7 : 0;
+        TankClasses.Set(tank, id);
+        TankStats.Recalc(tank);
+        ApplyBossStats(tank);
+        tank.Health = tank.MaxHealth;
+        tank.Snap();
+        Tanks.Add(tank);
+        var label = def.BossAltName ?? def.Name;
+        Notifications.Server($"The {label} has spawned!", 8, "boss_spawn");
+        ScheduleBossSpawn();
+        Debug.Flash(def.Name);
+        return tank;
+    }
+
+    private void ScheduleBossSpawn() =>
+        _bossSpawnIn = 600 + _rng.NextDouble() * 300; // 10–15 minutes
+
+    private void TickBossSpawn(double dt)
+    {
+        if (HasLivingBoss())
+            return;
+        _bossSpawnIn -= dt;
+        if (_bossSpawnIn > 0)
+            return;
+        if (SpawnBoss() is null)
+            ScheduleBossSpawn();
+    }
+
+    private static System.Windows.Media.Color BossFill(TankId id) => id switch
+    {
+        TankId.Guardian => DiepColors.Crasher,
+        TankId.Summoner => DiepColors.Square,
+        TankId.Defender => DiepColors.Triangle,
+        TankId.FallenBooster or TankId.FallenOverlord => DiepColors.Fallen,
+        _ => DiepColors.Fallen
+    };
+
+    private static void ApplyBossStats(TankEntity tank)
+    {
+        tank.MaxHealth = 3000;
+        tank.Health = 3000;
+        tank.Radius = tank.ClassId switch
+        {
+            TankId.Guardian => 72,
+            TankId.Summoner => 78,
+            TankId.Defender => 82,
+            TankId.FallenBooster or TankId.FallenOverlord => 58,
+            _ => 58
+        };
+        tank.Mass = 48;
+        tank.Absorption = 0.05;
+        tank.XpForNext = 1;
+        tank.XpIntoLevel = 0;
+    }
+
+    private void SpawnCloser(int index)
+    {
+        var edge = index % 4;
+        var along = 0.15 + _rng.NextDouble() * 0.7;
+        double x, y;
+        switch (edge)
+        {
+            case 0:
+                x = -80;
+                y = Height * along;
+                break;
+            case 1:
+                x = Width + 80;
+                y = Height * along;
+                break;
+            case 2:
+                x = Width * along;
+                y = -80;
+                break;
+            default:
+                x = Width * along;
+                y = Height + 80;
+                break;
+        }
+
+        var tank = new TankEntity
+        {
+            Id = _nextTankId++,
+            Fill = DiepColors.ArenaCloser,
+            IsArenaCloser = true,
+            Radius = 52,
+            Mass = 40,
+            Absorption = 0,
+            PushFactor = 20,
+            Level = 45
+        };
+        tank.X = x;
+        tank.Y = y;
+        tank.Angle = Math.Atan2(Height * 0.5 - y, Width * 0.5 - x);
+        TankClasses.Set(tank, TankId.Basic);
+        for (var s = 0; s < 8; s++)
+            tank.Stats[s] = 7;
+        TankStats.Recalc(tank);
+        tank.Radius = 52;
+        tank.Health = tank.MaxHealth = 1e9;
+        tank.Snap();
+        Tanks.Add(tank);
+    }
+
+    public ShapeEntity SpawnShape(ShapeKind? kind = null)
+    {
+        var shape = _spawner.Spawn(Shapes, Width, Height, kind);
+        Shapes.Add(shape);
+        Debug.Flash(kind is null ? "Shape" : kind.Value.ToString());
+        return shape;
+    }
+
+    internal void ForEachHashCell(Action<int, int, int> visit) => _collisions.ForEachHashCell(visit);
+
     public void SelectTank(int index)
     {
         if (index < 0 || index >= Tanks.Count)
@@ -85,7 +318,7 @@ public sealed class GameWorld
 
     public void SetSelectedStat(int stat, int value)
     {
-        if (Selected is null)
+        if (Selected is null || Selected.IsBoss || Selected.IsArenaCloser)
             return;
         if (TankStats.SetLevel(Selected, stat, value))
             Debug.Flash($"{TankStats.Names[stat]} {Selected.Stats[stat]}");
@@ -93,7 +326,7 @@ public sealed class GameWorld
 
     public void SetSelectedClass(TankId id)
     {
-        if (Selected is null)
+        if (Selected is null || Selected.IsBoss || Selected.IsArenaCloser)
             return;
         TankClasses.Set(Selected, id);
         TankStats.Recalc(Selected);
@@ -102,7 +335,9 @@ public sealed class GameWorld
 
     public void RemoveSelected()
     {
-        if (Selected is null || Tanks.Count <= 1)
+        if (Selected is null)
+            return;
+        if (!Selected.IsBoss && Tanks.Count(t => !t.IsArenaCloser && !t.IsBoss) <= 1)
             return;
         var i = Tanks.IndexOf(Selected);
         if (i < 0)
@@ -111,7 +346,7 @@ public sealed class GameWorld
             Cursor.Release();
         ClearOwnedBullets(Selected.Id);
         Tanks.RemoveAt(i);
-        Selected = Tanks[Math.Clamp(i, 0, Tanks.Count - 1)];
+        Selected = Tanks.Find(t => !t.IsArenaCloser);
         Debug.Flash("Removed");
     }
 
@@ -134,6 +369,7 @@ public sealed class GameWorld
     public void Advance(double renderDt)
     {
         Debug.TickNotice(renderDt);
+        Notifications.Tick(renderDt);
         if (Debug.Paused)
         {
             Alpha = 1;
@@ -171,7 +407,18 @@ public sealed class GameWorld
     {
         Cursor.BeginTick();
         TickPointer();
-        _spawner.Maintain(Shapes, Width, Height, dt);
+        if (CollideWindows)
+        {
+            Windows.Refresh(OverlayHwnd);
+            Nav.Rebuild(Width, Height, Windows.Boxes, 24);
+        }
+        else
+            Nav.Rebuild(Width, Height, [], 0);
+        if (!ArenaClosing)
+        {
+            _spawner.Maintain(Shapes, Width, Height, dt);
+            TickBossSpawn(dt);
+        }
 
         foreach (var s in Shapes)
         {
@@ -187,6 +434,7 @@ public sealed class GameWorld
 
         for (var i = 0; i < Tanks.Count; i++)
             TickTank(Tanks[i], i, dt);
+        SweepDeadBosses();
 
         for (var i = 0; i < Shapes.Count; i++)
         {
@@ -214,10 +462,85 @@ public sealed class GameWorld
         ResolveCollisions(dt);
         ApplyPendingClass();
         ApplyAllPhysics();
+        if (CollideWindows)
+            ApplyWindowCollisions();
         Cursor.EndTick();
         PruneDead();
+        TickArenaClose(dt);
         Debug.HashCells = _collisions.CellCount;
         Debug.HashPairs = _collisions.PairCount;
+    }
+
+    private void TickArenaClose(double dt)
+    {
+        if (!ArenaClosing || ExitRequested)
+            return;
+        if (!_closersRetreating)
+        {
+            if (LivingPlayers() > 0 || LivingShapes() > 0)
+            {
+                _closerLinger = -1;
+                return;
+            }
+            if (_closerLinger < 0)
+            {
+                _closerLinger = 2.4;
+                Notifications.Server("Arena cleared", 3, "arena_cleared");
+            }
+            _closerLinger -= dt;
+            if (_closerLinger > 0)
+                return;
+
+            _closersRetreating = true;
+            foreach (var tank in Tanks)
+            {
+                if (!tank.IsArenaCloser || !tank.Alive)
+                    continue;
+                tank.Alive = false;
+                tank.Health = 0;
+                ClearOwnedBullets(tank.Id);
+                tank.Destroy.Begin();
+                tank.Snap();
+            }
+            _exitDelay = 0.55;
+            return;
+        }
+
+        _exitDelay -= dt;
+        var anyCloser = false;
+        for (var i = Tanks.Count - 1; i >= 0; i--)
+        {
+            var tank = Tanks[i];
+            if (!tank.IsArenaCloser)
+                continue;
+            anyCloser = true;
+            if (tank.Destroy.Active)
+                tank.Destroy.Tick();
+            if (!tank.Alive && (!tank.Destroy.Active || tank.Destroy.Finished))
+            {
+                if (Selected == tank)
+                    Selected = null;
+                Tanks.RemoveAt(i);
+            }
+        }
+        if (_exitDelay <= 0 && !anyCloser)
+            ExitRequested = true;
+    }
+
+    private void SweepDeadBosses()
+    {
+        for (var i = Tanks.Count - 1; i >= 0; i--)
+        {
+            var tank = Tanks[i];
+            if (!tank.IsBoss || tank.Alive)
+                continue;
+            if (tank.Destroy.Active && !tank.Destroy.Finished)
+                continue;
+            if (Selected == tank)
+                Selected = Tanks.Find(t => t.Alive && !t.IsArenaCloser && t != tank);
+            ClearOwnedBullets(tank.Id);
+            Tanks.RemoveAt(i);
+        }
     }
 
     private void TickTank(TankEntity tank, int index, double dt)
@@ -225,17 +548,27 @@ public sealed class GameWorld
         tank.Flash.Tick();
         if (!tank.Alive)
         {
+            if (tank.IsArenaCloser)
+                return;
+            if (tank.IsBoss)
+            {
+                if (tank.Destroy.Active)
+                    tank.Destroy.Tick();
+                return;
+            }
             if (tank.Destroy.Active)
             {
                 tank.Destroy.Tick();
                 if (tank.Destroy.Finished)
                 {
                     tank.Destroy.Reset();
-                    tank.Respawn = 2.2;
+                    tank.Respawn = ArenaClosing ? 1e9 : 2.2;
                 }
             }
             else
             {
+                if (ArenaClosing)
+                    return;
                 tank.Respawn -= dt;
                 if (tank.Respawn <= 0)
                     RespawnTank(tank);
@@ -246,17 +579,108 @@ public sealed class GameWorld
         if (IsGrabbed(PhysKind.Tank, index))
             return;
 
+        if (tank.IsArenaCloser)
+        {
+            TickCloser(tank);
+            return;
+        }
+
+        if (tank.IsBoss)
+        {
+            TickBoss(tank, dt);
+            return;
+        }
+
         tank.Brain.SpendPoints(tank);
-        tank.Brain.Think(tank, Tanks, Shapes, out var ax, out var ay);
+        tank.Brain.Think(tank, this, out var ax, out var ay);
         DiepPhysics.MaintainVelocity(ref tank.Vx, ref tank.Vy, Math.Atan2(ay, ax),
             (ax == 0 && ay == 0) ? 0 : TankStats.MoveSpeed(tank));
         TickBarrels(tank);
         Regen(tank, dt);
     }
 
+    private void TickBoss(TankEntity tank, double dt)
+    {
+        BossBrain.Think(tank, this, out var ax, out var ay);
+        DiepPhysics.MaintainVelocity(ref tank.Vx, ref tank.Vy, Math.Atan2(ay, ax),
+            (ax == 0 && ay == 0) ? 0 : TankStats.MoveSpeed(tank));
+        TickBarrels(tank);
+        tank.Health = Math.Min(tank.MaxHealth, tank.Health + tank.MaxHealth / 25000.0);
+    }
+
+    private void TickCloser(TankEntity tank)
+    {
+        double tx = 0, ty = 0, tvx = 0, tvy = 0;
+        var best = double.MaxValue;
+        var found = false;
+
+        foreach (var other in Tanks)
+        {
+            if (other.IsArenaCloser || !other.Alive || other.Destroy.Active)
+                continue;
+            var dx = other.X - tank.X;
+            var dy = other.Y - tank.Y;
+            var d = dx * dx + dy * dy;
+            if (d >= best)
+                continue;
+            best = d;
+            tx = other.X;
+            ty = other.Y;
+            tvx = other.Vx;
+            tvy = other.Vy;
+            found = true;
+        }
+
+        if (!found)
+        {
+            best = double.MaxValue;
+            foreach (var s in Shapes)
+            {
+                if (s.Destroy.Active)
+                    continue;
+                var dx = s.X - tank.X;
+                var dy = s.Y - tank.Y;
+                var d = dx * dx + dy * dy;
+                if (d >= best)
+                    continue;
+                best = d;
+                tx = s.X;
+                ty = s.Y;
+                tvx = s.Vx;
+                tvy = s.Vy;
+                found = true;
+            }
+        }
+
+        if (!found)
+        {
+            tank.Brain.WantsShot = false;
+            DiepPhysics.MaintainVelocity(ref tank.Vx, ref tank.Vy, tank.Angle, TankStats.MoveSpeed(tank) * 0.35);
+            TickBarrels(tank);
+            return;
+        }
+
+        var dist = Math.Sqrt(best);
+        var speed = (20 + tank.Stats[TankStats.BulletSpeed] * 3) * (tank.Radius / 50.0) + 30 * (tank.Radius / 50.0);
+        var t = dist / Math.Max(4, speed);
+        for (var i = 0; i < 3; i++)
+        {
+            var dx = tx + tvx * t - tank.X - tank.Vx * 0.2 * t;
+            var dy = ty + tvy * t - tank.Y - tank.Vy * 0.2 * t;
+            t = Math.Sqrt(dx * dx + dy * dy) / Math.Max(4, speed);
+        }
+        tank.Brain.AimX = tx + tvx * t;
+        tank.Brain.AimY = ty + tvy * t;
+        tank.Angle = Math.Atan2(tank.Brain.AimY - tank.Y, tank.Brain.AimX - tank.X);
+        tank.Brain.WantsShot = true;
+        DiepPhysics.MaintainVelocity(ref tank.Vx, ref tank.Vy, tank.Angle, TankStats.MoveSpeed(tank) * 1.35);
+        TickBarrels(tank);
+    }
+
     private void TickBarrels(TankEntity tank)
     {
-        tank.RotatorAngle += 0.1;
+        if (!tank.IsBoss)
+            tank.RotatorAngle += 0.022;
         foreach (var g in tank.Guards)
             g.Tick();
         for (var i = 0; i < tank.Barrels.Length; i++)
@@ -276,13 +700,18 @@ public sealed class GameWorld
                 turret.Angle = Math.Atan2(tank.Brain.AimY - y, tank.Brain.AimX - x);
                 wants = true;
             }
+            else if (tank.IsBoss)
+            {
+                // Fixed on the body; face outward, no idle spin.
+                turret.Angle = tank.Angle + turret.MountAngle;
+            }
             else if (turret.Orbit > 0)
             {
                 turret.Angle = turret.MountAngle + tank.RotatorAngle;
             }
             else
             {
-                turret.Angle += 0.1;
+                turret.Angle += 0.022;
             }
 
             TickShootCycle(tank, 100 + i, turret.Barrel, wants, turret.Angle, x, y, recoil: false);
@@ -291,7 +720,9 @@ public sealed class GameWorld
 
     private static void TurretPose(TankEntity tank, AutoTurretState turret, out double x, out double y)
     {
-        var a = turret.MountAngle + tank.RotatorAngle;
+        var a = tank.IsBoss
+            ? tank.Angle + turret.MountAngle
+            : turret.MountAngle + tank.RotatorAngle;
         var r = tank.Radius * turret.Orbit;
         x = tank.X + Math.Cos(a) * r;
         y = tank.Y + Math.Sin(a) * r;
@@ -389,12 +820,16 @@ public sealed class GameWorld
         var bullet = def.Bullet;
         if (bullet.Type is ProjectileKind.Wall)
             return;
-        var scale = (from?.Radius ?? tank.Radius) / 50.0;
+        var scale = from is not null
+            ? from.Radius / 50.0
+            : index >= 100 && index < 1000
+                ? TankStats.TurretGunScale(tank)
+                : TankStats.GunScale(tank);
         var scatter = (Math.PI / 180.0) * bullet.ScatterRate * (_rng.NextDouble() - 0.5) * 10;
         var angle = facing + def.Angle + scatter;
         var size = def.Size * scale;
         var offset = def.Offset * scale;
-        var dist = def.Distance * scale;
+        var dist = (from is not null ? def.Distance : TankStats.BarrelDistance(tank, def)) * scale;
         var c = Math.Cos(angle);
         var s = Math.Sin(angle);
         var accel = (20 + tank.Stats[TankStats.BulletSpeed] * 3) * bullet.Speed * scale;
@@ -421,10 +856,23 @@ public sealed class GameWorld
             Kind = bullet.Type,
             BarrelIndex = index,
             OwnerId = tank.Id,
-            Fill = tank.Fill
+            Fill = bullet.NeutralColor ? DiepColors.Neutral : tank.Fill
         };
         Projectile.Configure(shot, tank, def, scale);
         shot.MovementAngle = angle;
+        if (tank.IsBoss && Projectile.IsDroneLike(shot.Kind))
+        {
+            shot.Accel *= 0.38;
+            shot.Vx *= 0.38;
+            shot.Vy *= 0.38;
+        }
+        if (tank.IsArenaCloser)
+        {
+            shot.Damage *= 4;
+            shot.Health *= 3;
+            shot.Radius = Math.Max(shot.Radius, 22);
+            shot.Life = Math.Max(shot.Life, 90);
+        }
         shot.Snap();
         Bullets.Add(shot);
 
@@ -544,7 +992,7 @@ public sealed class GameWorld
         for (var i = 0; i < Tanks.Count; i++)
         {
             var tank = Tanks[i];
-            if (!tank.Alive || tank.Destroy.Active) continue;
+            if (!tank.Alive || tank.Destroy.Active || tank.IsArenaCloser) continue;
             var d = Dist2(x, y, tank.X, tank.Y);
             var r = tank.Radius + 6;
             if (d <= r * r && d <= best) { best = d; kind = PhysKind.Tank; index = i; found = true; }
@@ -605,7 +1053,10 @@ public sealed class GameWorld
             var tank = Tanks[i];
             if (!(tank.Alive || tank.Destroy.Active) || IsGrabbed(PhysKind.Tank, i))
                 continue;
-            DiepPhysics.ApplyPhysics(ref tank.X, ref tank.Y, ref tank.Vx, ref tank.Vy, tank.Destroy.Active, tank.Radius, Width, Height);
+            if (tank.IsArenaCloser)
+                DiepPhysics.ApplyPhysics(ref tank.X, ref tank.Y, ref tank.Vx, ref tank.Vy, tank.Destroy.Active, tank.Radius, Width, Height, clamp: false);
+            else
+                DiepPhysics.ApplyPhysics(ref tank.X, ref tank.Y, ref tank.Vx, ref tank.Vy, tank.Destroy.Active, tank.Radius, Width, Height);
         }
         for (var i = 0; i < Shapes.Count; i++)
         {
@@ -635,6 +1086,53 @@ public sealed class GameWorld
             if (b.Kind == ProjectileKind.Trap)
                 Math2.Bounce(ref b.X, ref b.Y, ref b.Vx, ref b.Vy, b.Radius, Width, Height);
         }
+    }
+
+    private void ApplyWindowCollisions()
+    {
+        var boxes = Windows.Boxes;
+        if (boxes.Count == 0)
+            return;
+
+        for (var i = 0; i < Tanks.Count; i++)
+        {
+            var tank = Tanks[i];
+            if (!(tank.Alive || tank.Destroy.Active) || tank.IsArenaCloser || IsGrabbed(PhysKind.Tank, i))
+                continue;
+            BounceWindows(ref tank.X, ref tank.Y, ref tank.Vx, ref tank.Vy, tank.Radius, boxes);
+        }
+        for (var i = 0; i < Shapes.Count; i++)
+        {
+            var s = Shapes[i];
+            if (IsGrabbed(PhysKind.Shape, i))
+                continue;
+            BounceWindows(ref s.X, ref s.Y, ref s.Vx, ref s.Vy, s.Radius, boxes);
+        }
+        for (var i = 0; i < Bullets.Count; i++)
+        {
+            var b = Bullets[i];
+            if (IsGrabbed(PhysKind.Bullet, i) || b.Destroy.Active)
+                continue;
+            if (Projectile.IsDroneLike(b.Kind) || b.Kind == ProjectileKind.Trap)
+            {
+                BounceWindows(ref b.X, ref b.Y, ref b.Vx, ref b.Vy, b.Radius, boxes);
+                continue;
+            }
+            foreach (var box in boxes)
+            {
+                if (!Math2.CircleHitsAabb(b.X, b.Y, b.Radius, box))
+                    continue;
+                b.Health = 0;
+                b.Life = 0;
+                break;
+            }
+        }
+    }
+
+    private static void BounceWindows(ref double x, ref double y, ref double vx, ref double vy, double radius, IReadOnlyList<WindowBox> boxes)
+    {
+        foreach (var box in boxes)
+            Math2.BounceCircleAabb(ref x, ref y, ref vx, ref vy, radius, box);
     }
 
     private void PruneDead()
@@ -675,7 +1173,7 @@ public sealed class GameWorld
 
     internal void HurtTank(TankEntity tank, double amount, TankEntity? killer)
     {
-        if (!tank.Alive || amount <= 0)
+        if (!tank.Alive || amount <= 0 || tank.IsArenaCloser)
             return;
         tank.Health -= amount;
         tank.Flash.Hit();
@@ -687,10 +1185,17 @@ public sealed class GameWorld
         ClearOwnedBullets(tank.Id);
         tank.Snap();
         if (!tank.Destroy.Begin())
-            tank.Respawn = 2.2;
+            tank.Respawn = tank.IsBoss ? 1e9 : 2.2;
         if (killer is not null && killer.Id != tank.Id)
-            AddScore(killer, Math.Max(20, tank.Level * 8));
-        Debug.Flash("Tank died");
+            AddScore(killer, tank.IsBoss ? tank.BossXp : Math.Max(20, tank.Level * 8));
+        if (tank.IsBoss)
+        {
+            var name = tank.BossAltName ?? tank.Class.Name;
+            var killerName = killer is null ? "an unnamed tank"
+                : killer.IsBoss ? (killer.BossAltName ?? killer.Class.Name) : killer.Class.Name;
+            Notifications.Server($"The {name} has been defeated by {killerName}!", 10, "boss_death");
+        }
+        Debug.Flash(tank.IsBoss ? "Boss died" : "Tank died");
     }
 
     private void ClearOwnedBullets(int ownerId)
@@ -761,7 +1266,7 @@ public sealed class GameWorld
             Damage = (7 + tank.Stats[TankStats.BulletDamage] * 3) * barrel.Def.Bullet.Damage * 0.5,
             Health = (1.5 * tank.Stats[TankStats.Pen] + 2) * barrel.Def.Bullet.Health,
             Life = 1e9,
-            Accel = (20 + tank.Stats[TankStats.BulletSpeed] * 3) * barrel.Def.Bullet.Speed * (tank.Radius / 50.0),
+            Accel = (20 + tank.Stats[TankStats.BulletSpeed] * 3) * barrel.Def.Bullet.Speed * TankStats.GunScale(tank),
             Absorption = barrel.Def.Bullet.Absorption,
             PushFactor = 4,
             Kind = ProjectileKind.Necrodrone,

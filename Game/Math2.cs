@@ -31,6 +31,51 @@ internal static class Math2
         if (y > height - radius) { y = height - radius; vy = -Math.Abs(vy); }
     }
 
+    public static bool CircleHitsAabb(double x, double y, double radius, in WindowBox box)
+    {
+        var nx = Math.Clamp(x, box.Left, box.Right);
+        var ny = Math.Clamp(y, box.Top, box.Bottom);
+        var dx = x - nx;
+        var dy = y - ny;
+        return dx * dx + dy * dy <= radius * radius;
+    }
+
+    public static void BounceCircleAabb(ref double x, ref double y, ref double vx, ref double vy, double radius, in WindowBox box)
+    {
+        var l = box.Left - radius;
+        var t = box.Top - radius;
+        var r = box.Right + radius;
+        var b = box.Bottom + radius;
+        if (x <= l || x >= r || y <= t || y >= b)
+            return;
+
+        var dl = x - l;
+        var dr = r - x;
+        var dt = y - t;
+        var db = b - y;
+        var min = Math.Min(Math.Min(dl, dr), Math.Min(dt, db));
+        if (min == dl)
+        {
+            x = l;
+            vx = -Math.Abs(vx);
+        }
+        else if (min == dr)
+        {
+            x = r;
+            vx = Math.Abs(vx);
+        }
+        else if (min == dt)
+        {
+            y = t;
+            vy = -Math.Abs(vy);
+        }
+        else
+        {
+            y = b;
+            vy = Math.Abs(vy);
+        }
+    }
+
     public static bool SweepCircle(double x0, double y0, double x1, double y1, double cx, double cy, double radius, out double tHit)
     {
         tHit = 1;

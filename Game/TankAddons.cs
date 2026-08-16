@@ -95,6 +95,10 @@ internal static class TankAddons
             case "auto7":
                 Orbit(turrets, 7);
                 break;
+            case "defender":
+                // diepcustom: offset = 60 / (DEFENDER_SIZE * SQRT1_2) ≈ 0.566
+                Orbit(turrets, 3, 0.55, DefenderTurret());
+                break;
         }
     }
 
@@ -114,21 +118,45 @@ internal static class TankAddons
         return t;
     }
 
-    private static void Orbit(List<AutoTurretState> turrets, int count)
+    private static void Orbit(List<AutoTurretState> turrets, int count, double orbit = 0.8, BarrelDef? barrel = null)
     {
+        barrel ??= AutoTurretMiniBarrel;
         for (var i = 0; i < count; i++)
         {
             var t = new AutoTurretState
             {
                 MountAngle = Math.PI * 2 * i / count,
-                Orbit = 0.8
+                Orbit = orbit
             };
             t.Angle = t.MountAngle;
             t.PrevAngle = t.MountAngle;
-            t.Barrel.Bind(AutoTurretMiniBarrel, 15);
+            t.Barrel.Bind(barrel, 15);
             turrets.Add(t);
         }
     }
+
+    private static BarrelDef DefenderTurret() => new()
+    {
+        Angle = 0,
+        Offset = 0,
+        Size = 55,
+        Width = 42 * 0.7,
+        Delay = 0.01,
+        Reload = 1,
+        Recoil = 0.3,
+        Bullet = new()
+        {
+            Type = ProjectileKind.Bullet,
+            SizeRatio = 1,
+            Health = 5.75,
+            Damage = 1.2,
+            Speed = 2.46,
+            ScatterRate = 1,
+            LifeLength = 1,
+            Absorption = 1,
+            NeutralColor = true
+        }
+    };
 
     private static BarrelDef Mini(double damage) => new()
     {

@@ -90,7 +90,7 @@ internal sealed class DrawCache
         {
             ShapeKind.Crasher => 3,
             ShapeKind.Triangle => 3,
-            ShapeKind.Pentagon => 5,
+            ShapeKind.Pentagon or ShapeKind.AlphaPentagon => 5,
             _ => 4
         };
         return RegularPolygon(sides, radius, kind == ShapeKind.Crasher ? 0 : null);

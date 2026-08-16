@@ -12,18 +12,19 @@ internal sealed class WorldRenderer
     public void Draw(DrawingContext dc, GameWorld world)
     {
         var t = world.DrawAlpha;
+        var bars = world.Alpha;
         foreach (var s in world.Shapes)
-            DrawShape(dc, s, t);
+            DrawShape(dc, s, t, bars);
         foreach (var b in world.Bullets)
             DrawBullet(dc, b, t);
         foreach (var tank in world.Tanks)
         {
             if (tank.Alive || tank.Destroy.Active)
-                DrawTank(dc, tank, t, world.ShowSelectionHalo && tank == world.Selected);
+                DrawTank(dc, tank, t, bars, world.ShowSelectionHalo && tank == world.Selected);
         }
     }
 
-    private void DrawTank(DrawingContext dc, TankEntity tank, double t, bool selected)
+    private void DrawTank(DrawingContext dc, TankEntity tank, double t, double bars, bool selected)
     {
         var x = tank.DrawX(t);
         var y = tank.DrawY(t);
@@ -38,7 +39,7 @@ internal sealed class WorldRenderer
         var borderFill = _draw.Brush(DiepColors.Border);
         var borderStroke = _draw.Pen(DiepColors.Stroke(DiepColors.Border), 3.2);
         var deg = tank.DrawAngle(t) * 180 / Math.PI;
-        var scale = tank.Radius / 50.0;
+        var scale = TankStats.GunScale(tank);
 
         foreach (var guard in tank.Guards)
         {
@@ -47,25 +48,59 @@ internal sealed class WorldRenderer
             dc.Pop();
         }
 
+        // Auto 3 / Auto 5 sit under the body like diep.io.
+        if (!tank.IsBoss)
+            DrawTurrets(dc, tank, t, scale, barrelFill, barrelStroke, orbitOnly: true);
+
         dc.PushTransform(new RotateTransform(deg));
         DrawPrePost(dc, tank.Class.PreAddon, tank, scale, barrelFill, barrelStroke);
         foreach (var barrel in tank.Barrels)
-            DrawBarrel(dc, barrel, scale, t, barrelFill, barrelStroke);
+            DrawBarrel(dc, barrel, scale, t, barrelFill, barrelStroke, TankStats.BarrelDistance(tank, barrel.Def));
         DrawPrePost(dc, tank.Class.PostAddon, tank, scale, barrelFill, barrelStroke);
         DrawBody(dc, tank, fill, stroke);
         dc.Pop();
 
-        DrawTurrets(dc, tank, t, scale, barrelFill, barrelStroke);
+        // Center auto-turrets + boss mounts draw on top.
+        DrawTurrets(dc, tank, t, scale, barrelFill, barrelStroke, orbitOnly: tank.IsBoss ? null : false);
         if (selected && !dying)
             dc.DrawEllipse(null, _draw.Pen(Colors.White, 1.6), new Point(0, 0), tank.Radius + 6, tank.Radius + 6);
         PopDeath(dc);
 
         if (dying)
             return;
-        DrawBar(dc, x, y + tank.Radius + 10, 42, 4.5, tank.Health / tank.MaxHealth, DiepColors.Health);
-        DrawBar(dc, x, y + tank.Radius + 16, 42, 3, tank.XpIntoLevel / (double)Math.Max(1, tank.XpForNext), DiepColors.Xp);
-        var label = _draw.Text($"{tank.Class.Name}  Lv {tank.Level}", 11, Colors.White);
-        dc.DrawText(label, new Point(x - label.Width / 2, y - tank.Radius - 18));
+        var nameSize = Math.Clamp(tank.Radius * 0.42, 10, 28);
+        if (tank.IsBoss)
+        {
+            DrawBar(dc, x, y + tank.Radius + 10, BarWidth(tank.Radius), 6.5, tank.DrawHealthRatio(bars), DiepColors.Health);
+            DrawNametag(dc, tank.BossAltName ?? tank.Class.Name, nameSize, Colors.White, x, y - tank.Radius - nameSize * 1.35);
+        }
+        else if (!tank.IsArenaCloser)
+        {
+            DrawBar(dc, x, y + tank.Radius + 10, BarWidth(tank.Radius), 5.5, tank.DrawHealthRatio(bars), DiepColors.Health);
+            DrawBar(dc, x, y + tank.Radius + 22, BarWidth(tank.Radius), 3.6, tank.DrawXpRatio(bars), DiepColors.Xp);
+            DrawNametag(dc, $"{tank.Class.Name}  Lv {tank.Level}", nameSize, Colors.White, x, y - tank.Radius - nameSize * 1.35);
+        }
+        else
+        {
+            DrawNametag(dc, "Arena Closer", nameSize, Colors.White, x, y - tank.Radius - nameSize * 1.35);
+        }
+    }
+
+    private void DrawNametag(DrawingContext dc, string text, double size, Color fill, double centerX, double y)
+    {
+        var label = _draw.Text(text, size, fill);
+        var outline = _draw.Text(text, size, Colors.Black);
+        var x = centerX - label.Width / 2;
+        var o = Math.Max(1.0, size * 0.1);
+        dc.DrawText(outline, new Point(x - o, y));
+        dc.DrawText(outline, new Point(x + o, y));
+        dc.DrawText(outline, new Point(x, y - o));
+        dc.DrawText(outline, new Point(x, y + o));
+        dc.DrawText(outline, new Point(x - o, y - o));
+        dc.DrawText(outline, new Point(x + o, y - o));
+        dc.DrawText(outline, new Point(x - o, y + o));
+        dc.DrawText(outline, new Point(x + o, y + o));
+        dc.DrawText(label, new Point(x, y));
     }
 
     private static void DrawBody(DrawingContext dc, TankEntity tank, Brush fill, Pen stroke)
@@ -74,10 +109,14 @@ internal sealed class WorldRenderer
         if (sides <= 1)
             dc.DrawEllipse(fill, stroke, new Point(0, 0), tank.Radius, tank.Radius);
         else
-            dc.DrawGeometry(fill, stroke, DrawCache.RegularPolygon(sides, tank.Radius));
+        {
+            // Triangles point along facing (crasher-style), matching Guardian/Defender.
+            double? tip = sides == 3 ? 0 : null;
+            dc.DrawGeometry(fill, stroke, DrawCache.RegularPolygon(sides, tank.Radius, tip));
+        }
     }
 
-    private void DrawBarrel(DrawingContext dc, BarrelState barrel, double scale, double t, Brush fill, Pen stroke)
+    private void DrawBarrel(DrawingContext dc, BarrelState barrel, double scale, double t, Brush fill, Pen stroke, double? distance = null)
     {
         var def = barrel.Def;
         if (def.Addon == "purplebarrel")
@@ -87,8 +126,9 @@ internal sealed class WorldRenderer
         }
         var length = Math.Max(0.5, barrel.DrawLength(t, scale));
         var width = Math.Max(0.5, def.Width * scale);
+        var dist = (distance ?? def.Distance) * scale;
         dc.PushTransform(new RotateTransform(def.Angle * 180 / Math.PI));
-        dc.PushTransform(new TranslateTransform(def.Distance * scale, def.Offset * scale));
+        dc.PushTransform(new TranslateTransform(dist, def.Offset * scale));
         if (def.IsTrapezoid)
         {
             var invert = Math.Abs(Math2.NormalizeAngle(def.TrapezoidDirection)) > Math.PI / 2;
@@ -159,17 +199,28 @@ internal sealed class WorldRenderer
         }
     }
 
-    private void DrawTurrets(DrawingContext dc, TankEntity tank, double t, double scale, Brush barrelFill, Pen barrelStroke)
+    /// <param name="orbitOnly">
+    /// true = only orbiting mounts (Auto 3/5), false = only centered mounts,
+    /// null = all (bosses).
+    /// </param>
+    private void DrawTurrets(DrawingContext dc, TankEntity tank, double t, double scale, Brush barrelFill, Pen barrelStroke, bool? orbitOnly)
     {
-        var rot = tank.DrawRotator(t);
+        var body = tank.DrawAngle(t);
+        var rot = tank.IsBoss ? 0 : tank.DrawRotator(t);
+        // Boss turrets: a bit under full AutoTurret size (not tiny, not huge).
+        var turretScale = tank.IsBoss ? 0.62 : scale;
         foreach (var turret in tank.Turrets)
         {
-            var a = turret.MountAngle + rot;
+            var isOrbit = turret.Orbit > 0.01;
+            if (orbitOnly is { } only && only != isOrbit)
+                continue;
+
+            var a = tank.IsBoss ? body + turret.MountAngle : turret.MountAngle + rot;
             var r = tank.Radius * turret.Orbit;
             dc.PushTransform(new TranslateTransform(Math.Cos(a) * r, Math.Sin(a) * r));
             dc.PushTransform(new RotateTransform(turret.DrawAngle(t) * 180 / Math.PI));
-            DrawBarrel(dc, turret.Barrel, scale, t, barrelFill, barrelStroke);
-            var baseR = 25 * scale;
+            DrawBarrel(dc, turret.Barrel, turretScale, t, barrelFill, barrelStroke);
+            var baseR = 25 * turretScale;
             dc.DrawEllipse(barrelFill, barrelStroke, new Point(0, 0), baseR, baseR);
             dc.Pop();
             dc.Pop();
@@ -196,6 +247,9 @@ internal sealed class WorldRenderer
             dc.DrawGeometry(fill, stroke, DrawCache.Star(3, b.Radius));
         else if (b.Sides <= 1)
             dc.DrawEllipse(fill, stroke, new Point(0, 0), b.Radius, b.Radius);
+        else if (b.Sides == 3)
+            // Tip along +X so DrawAngle aims the point at the target (same as crashers).
+            dc.DrawGeometry(fill, stroke, DrawCache.RegularPolygon(3, b.Radius, 0));
         else
             dc.DrawGeometry(fill, stroke, DrawCache.RegularPolygon(b.Sides, b.Radius));
         dc.Pop();
@@ -204,7 +258,7 @@ internal sealed class WorldRenderer
         PopDeath(dc);
     }
 
-    private void DrawShape(DrawingContext dc, ShapeEntity s, double t)
+    private void DrawShape(DrawingContext dc, ShapeEntity s, double t, double bars)
     {
         var x = s.DrawX(t);
         var y = s.DrawY(t);
@@ -216,8 +270,10 @@ internal sealed class WorldRenderer
         dc.Pop();
         PopDeath(dc);
         if (!s.Destroy.Active && s.Health < s.MaxHealth - 0.2)
-            DrawBar(dc, x, y + s.Radius + 8, s.Radius * 2, 4.5, s.Health / s.MaxHealth, DiepColors.Health);
+            DrawBar(dc, x, y + s.Radius + 8, BarWidth(s.Radius), 5.5, s.DrawHealthRatio(bars), DiepColors.Health);
     }
+
+    private static double BarWidth(double radius) => Math.Clamp(radius * 2.2, 36, 120);
 
     private static void PushDeath(DrawingContext dc, DestroyAnim death, double x, double y, double interp)
     {
@@ -238,9 +294,22 @@ internal sealed class WorldRenderer
     private void DrawBar(DrawingContext dc, double cx, double y, double width, double height, double ratio, Color fill)
     {
         ratio = Math.Clamp(ratio, 0, 1);
-        var x = cx - width / 2;
-        dc.DrawRoundedRectangle(_draw.Brush(DiepColors.HealthBack), null, new Rect(x, y, width, height), 2, 2);
-        if (ratio > 0)
-            dc.DrawRoundedRectangle(_draw.Brush(fill), null, new Rect(x, y, width * ratio, height), 2, 2);
+        const double outline = 1.6;
+        var totalW = width + outline * 2;
+        var totalH = height + outline * 2;
+        var x = cx - totalW / 2;
+        // Capsule ends (half-height radius), like diep health bars.
+        var outerR = totalH * 0.5;
+        dc.DrawRoundedRectangle(_draw.Brush(DiepColors.HealthBack), null, new Rect(x, y, totalW, totalH), outerR, outerR);
+        var ix = x + outline;
+        var iy = y + outline;
+        var innerR = height * 0.5;
+        dc.DrawRoundedRectangle(_draw.Brush(DiepColors.HealthBack), null, new Rect(ix, iy, width, height), innerR, innerR);
+        if (ratio > 0.001)
+        {
+            var fillW = Math.Max(0.5, width * ratio);
+            var fillR = Math.Min(innerR, fillW * 0.5);
+            dc.DrawRoundedRectangle(_draw.Brush(fill), null, new Rect(ix, iy, fillW, height), fillR, fillR);
+        }
     }
 }

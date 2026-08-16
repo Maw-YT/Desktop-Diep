@@ -18,7 +18,7 @@ internal static class ShapeMotion
         var best = 640.0 * 640.0;
         foreach (var tank in tanks)
         {
-            if (!tank.Alive || tank.Destroy.Active)
+            if (!tank.Alive || tank.Destroy.Active || tank.IsArenaCloser)
                 continue;
             var dx = tank.X - s.X;
             var dy = tank.Y - s.Y;

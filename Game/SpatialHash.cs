@@ -11,6 +11,12 @@ internal sealed class SpatialHash
     public int CellCount => _cells.Count;
     public int PairCount { get; private set; }
 
+    public void ForEachCell(Action<int, int, int> visit)
+    {
+        foreach (var (key, list) in _cells)
+            visit((int)(key >> 32), (int)(uint)key, list.Count);
+    }
+
     public void Clear()
     {
         foreach (var list in _cells.Values)

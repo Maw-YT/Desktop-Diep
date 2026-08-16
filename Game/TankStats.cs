@@ -51,6 +51,8 @@ internal static class TankStats
 
     public static double BodyDamage(TankEntity tank)
     {
+        if (tank.IsBoss)
+            return 28;
         var dmg = 8 + tank.Stats[Body] * 4.5;
         if (IsRam(tank))
             dmg *= tank.Class.PostAddon == "spike" ? 1.5 : 1.25;
@@ -59,6 +61,40 @@ internal static class TankStats
 
     public static double MoveSpeed(TankEntity tank) =>
         (210 / 25.0) * tank.Class.Speed * (1 + tank.Stats[Move] * 0.155) * (1 - Math.Min(0.18, tank.Level * 0.003));
+
+    /// <summary>Barrel/turret scale. Bosses use diepcustom sizeFactor, not Radius/50.</summary>
+    public static double GunScale(TankEntity tank)
+    {
+        if (!tank.IsBoss)
+            return tank.Radius / 50.0;
+        return tank.ClassId switch
+        {
+            TankId.Guardian or TankId.Summoner or TankId.Defender => 1.0,
+            TankId.FallenBooster or TankId.FallenOverlord => 1.1,
+            _ => 1.0
+        };
+    }
+
+    /// <summary>
+    /// Extra mount distance so polygon-boss barrels start nearer the rim.
+    /// Fallen bosses and Defender keep authored Distance.
+    /// </summary>
+    public static double BarrelDistance(TankEntity tank, BarrelDef def)
+    {
+        if (!tank.IsBoss || tank.ClassId is TankId.Defender or TankId.FallenBooster or TankId.FallenOverlord)
+            return def.Distance;
+        var scale = Math.Max(0.2, GunScale(tank));
+        var rim = tank.ClassId switch
+        {
+            TankId.Guardian => tank.Radius * 0.10,
+            TankId.Summoner => tank.Radius * 0.16,
+            _ => 0
+        };
+        return def.Distance + rim / scale;
+    }
+
+    public static double TurretGunScale(TankEntity tank) =>
+        tank.IsBoss ? 0.62 : GunScale(tank);
 
     public static double ReloadTicks(TankEntity tank) =>
         15 * Math.Pow(0.914, tank.Stats[Reload]);

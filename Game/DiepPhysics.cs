@@ -11,10 +11,11 @@ internal static class DiepPhysics
     public static void MaintainVelocity(ref double vx, ref double vy, double angle, double maxSpeed) =>
         AddVelocity(ref vx, ref vy, angle, maxSpeed * 0.1);
 
-    public static void ApplyPhysics(ref double x, ref double y, ref double vx, ref double vy, bool deleting, double radius, double width, double height)
+    public static void ApplyPhysics(ref double x, ref double y, ref double vx, ref double vy, bool deleting, double radius, double width, double height, bool clamp = true)
     {
         Step(ref x, ref y, ref vx, ref vy, deleting);
-        Math2.ClampPos(ref x, ref y, radius, width, height);
+        if (clamp)
+            Math2.ClampPos(ref x, ref y, radius, width, height);
     }
 
     public static void ApplyDronePhysics(ref double x, ref double y, ref double vx, ref double vy, bool deleting, double radius, double width, double height, bool bounce)

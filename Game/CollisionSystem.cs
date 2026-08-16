@@ -23,6 +23,8 @@ internal sealed class CollisionSystem
     public int CellCount => _hash.CellCount;
     public int PairCount => _hash.PairCount;
 
+    public void ForEachHashCell(Action<int, int, int> visit) => _hash.ForEachCell(visit);
+
     public void Resolve(GameWorld world, double dt)
     {
         _bodies.Clear();
@@ -53,8 +55,11 @@ internal sealed class CollisionSystem
             Add(PhysKind.Bullet, i, b.X, b.Y, b.Radius, b.PushFactor, world.IsGrabbed(PhysKind.Bullet, i) ? 0 : b.Absorption);
         }
 
-        var c = world.Cursor;
-        Add(PhysKind.Cursor, -2, c.X, c.Y, c.Radius, c.PushFactor, c.Absorption);
+        if (world.CollideCursor)
+        {
+            var c = world.Cursor;
+            Add(PhysKind.Cursor, -2, c.X, c.Y, c.Radius, c.PushFactor, c.Absorption);
+        }
 
         _hash.ForEachPair((ia, ib) => HandlePair(world, dt, ia, ib));
     }
@@ -115,6 +120,8 @@ internal sealed class CollisionSystem
 
     private static bool FriendlyFire(GameWorld world, PhysBody a, PhysBody b)
     {
+        if (CloserSide(world, a) && CloserSide(world, b))
+            return true;
         var ownerA = Owner(world, a);
         var ownerB = Owner(world, b);
         if (ownerA < 0 || ownerB < 0 || ownerA != ownerB)
@@ -127,6 +134,18 @@ internal sealed class CollisionSystem
                 return false;
         }
         return true;
+    }
+
+    private static bool CloserSide(GameWorld world, PhysBody body)
+    {
+        if (body.Kind == PhysKind.Tank)
+            return world.Tanks[body.Index].IsArenaCloser;
+        if (body.Kind == PhysKind.Bullet)
+        {
+            var owner = world.FindTank(world.Bullets[body.Index].OwnerId);
+            return owner is { IsArenaCloser: true };
+        }
+        return false;
     }
 
     private static int Owner(GameWorld world, PhysBody body) => body.Kind switch
@@ -150,13 +169,25 @@ internal sealed class CollisionSystem
 
     private static void ApplyKnockback(GameWorld world, PhysBody a, PhysBody b)
     {
+        var closerA = a.Kind == PhysKind.Tank && world.Tanks[a.Index].IsArenaCloser;
+        var closerB = b.Kind == PhysKind.Tank && world.Tanks[b.Index].IsArenaCloser;
         GetVel(world, a, out var x1, out var y1, out var vx1, out var vy1);
         GetVel(world, b, out var x2, out var y2, out var vx2, out var vy2);
+        var ovx1 = vx1;
+        var ovy1 = vy1;
+        var ovx2 = vx2;
+        var ovy2 = vy2;
         Collision.Knockback(
             ref x1, ref y1, ref vx1, ref vy1, a.Absorb, a.Push,
             ref x2, ref y2, ref vx2, ref vy2, b.Absorb, b.Push);
-        SetVel(world, a, vx1, vy1);
-        SetVel(world, b, vx2, vy2);
+        if (!closerA)
+            SetVel(world, a, vx1, vy1);
+        else
+            SetVel(world, a, ovx1, ovy1);
+        if (!closerB)
+            SetVel(world, b, vx2, vy2);
+        else
+            SetVel(world, b, ovx2, ovy2);
     }
 
     private static bool TryTankTank(GameWorld world, double dt, PhysBody a, PhysBody b)
@@ -165,8 +196,12 @@ internal sealed class CollisionSystem
             return false;
         var t1 = world.Tanks[a.Index];
         var t2 = world.Tanks[b.Index];
-        world.HurtTank(t1, TankStats.BodyDamage(t2), t2);
-        world.HurtTank(t2, TankStats.BodyDamage(t1), t1);
+        if (t1.IsArenaCloser && t2.IsArenaCloser)
+            return true;
+        if (!t1.IsArenaCloser)
+            world.HurtTank(t1, t2.IsArenaCloser ? 80 : TankStats.BodyDamage(t2), t2);
+        if (!t2.IsArenaCloser)
+            world.HurtTank(t2, t1.IsArenaCloser ? 80 : TankStats.BodyDamage(t1), t1);
         return true;
     }
 
@@ -194,6 +229,12 @@ internal sealed class CollisionSystem
         var tank = world.Tanks[tankBody.Index];
         if (bullet.Destroy.Active || !tank.Alive)
             return true;
+        if (tank.IsArenaCloser)
+        {
+            bullet.Health = 0;
+            FinishBullet(bullet);
+            return true;
+        }
         var killer = world.FindTank(bullet.OwnerId);
         world.HurtTank(tank, bullet.Damage, killer);
         bullet.Health -= 1;

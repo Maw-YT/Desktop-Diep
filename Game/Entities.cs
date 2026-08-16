@@ -7,6 +7,7 @@ public enum ShapeKind
     Square,
     Triangle,
     Pentagon,
+    AlphaPentagon,
     Crasher
 }
 
@@ -15,6 +16,7 @@ public sealed class ShapeEntity
     public double PrevX, PrevY, PrevAngle;
     public double X, Y, Vx, Vy, Angle, Spin;
     public double Radius, Mass, Health, MaxHealth;
+    public double PrevHealth, PrevMaxHealth;
     public double PushFactor = 8;
     public double Absorption = 1;
     public double OrbitCx, OrbitCy, OrbitRadius, OrbitAngle, OrbitSpeed;
@@ -29,12 +31,20 @@ public sealed class ShapeEntity
     public double DrawX(double t) => Interp.Lerp(PrevX, X, t);
     public double DrawY(double t) => Interp.Lerp(PrevY, Y, t);
     public double DrawAngle(double t) => Interp.LerpAngle(PrevAngle, Angle, t);
+    public double DrawHealthRatio(double t)
+    {
+        var a = PrevMaxHealth <= 0.001 ? 1 : PrevHealth / PrevMaxHealth;
+        var b = MaxHealth <= 0.001 ? 1 : Health / MaxHealth;
+        return Interp.Lerp(a, b, t);
+    }
 
     public void Capture()
     {
         PrevX = X;
         PrevY = Y;
         PrevAngle = Angle;
+        PrevHealth = Health;
+        PrevMaxHealth = MaxHealth;
         Destroy.Capture();
         Flash.Capture();
     }
@@ -44,6 +54,8 @@ public sealed class ShapeEntity
         PrevX = X;
         PrevY = Y;
         PrevAngle = Angle;
+        PrevHealth = Health;
+        PrevMaxHealth = MaxHealth;
     }
 
     public void Hurt(double amount)
@@ -115,6 +127,10 @@ public sealed class TankEntity
     public double Absorption = 1;
     public double Health = 50;
     public double MaxHealth = 50;
+    public double PrevHealth = 50;
+    public double PrevMaxHealth = 50;
+    public int PrevXpIntoLevel;
+    public int PrevXpForNext = 10;
     public double CombatTimer;
     public int Id;
     public Color Fill = DiepColors.Tank;
@@ -133,6 +149,10 @@ public sealed class TankEntity
     public int XpForNext = 10;
     public readonly int[] Stats = new int[8];
     public bool Alive = true;
+    public bool IsArenaCloser;
+    public bool IsBoss;
+    public string? BossAltName;
+    public int BossXp = 3000;
     public double Respawn;
     public DestroyAnim Destroy { get; } = new();
     public DamageFlash Flash { get; } = new();
@@ -142,6 +162,18 @@ public sealed class TankEntity
     public double DrawY(double t) => Interp.Lerp(PrevY, Y, t);
     public double DrawAngle(double t) => Interp.LerpAngle(PrevAngle, Angle, t);
     public double DrawRotator(double t) => Interp.LerpAngle(PrevRotatorAngle, RotatorAngle, t);
+    public double DrawHealthRatio(double t)
+    {
+        var a = PrevMaxHealth <= 0.001 ? 1 : PrevHealth / PrevMaxHealth;
+        var b = MaxHealth <= 0.001 ? 1 : Health / MaxHealth;
+        return Interp.Lerp(a, b, t);
+    }
+    public double DrawXpRatio(double t)
+    {
+        var a = PrevXpForNext <= 0 ? 0 : PrevXpIntoLevel / (double)PrevXpForNext;
+        var b = XpForNext <= 0 ? 0 : XpIntoLevel / (double)XpForNext;
+        return Interp.Lerp(a, b, t);
+    }
 
     public void Capture()
     {
@@ -149,6 +181,10 @@ public sealed class TankEntity
         PrevY = Y;
         PrevAngle = Angle;
         PrevRotatorAngle = RotatorAngle;
+        PrevHealth = Health;
+        PrevMaxHealth = MaxHealth;
+        PrevXpIntoLevel = XpIntoLevel;
+        PrevXpForNext = XpForNext;
         Destroy.Capture();
         Flash.Capture();
         foreach (var b in Barrels)
@@ -165,6 +201,10 @@ public sealed class TankEntity
         PrevY = Y;
         PrevAngle = Angle;
         PrevRotatorAngle = RotatorAngle;
+        PrevHealth = Health;
+        PrevMaxHealth = MaxHealth;
+        PrevXpIntoLevel = XpIntoLevel;
+        PrevXpForNext = XpForNext;
         foreach (var g in Guards)
             g.PrevAngle = g.Angle;
         foreach (var turret in Turrets)

@@ -13,15 +13,12 @@ internal sealed class DebugOverlay
     public void Draw(DrawingContext dc, GameWorld world, Size size)
     {
         var debug = world.Debug;
+        if (world.ShowNav)
+            DrawNav(dc, world);
+        if (world.ShowHash)
+            DrawHash(dc, world);
         if (!debug.Enabled)
             return;
-
-        if (debug.ShowHitboxes)
-            DrawHitboxes(dc, world);
-        if (debug.ShowVelocity)
-            DrawVelocities(dc, world);
-        DrawAi(dc, world);
-        DrawPanel(dc, world, size);
 
         if (debug.NoticeLife > 0 && debug.Notice is not null)
         {
@@ -29,6 +26,72 @@ internal sealed class DebugOverlay
             var banner = _draw.Text(debug.Notice, 18, Color.FromArgb(alpha, 124, 252, 0));
             dc.DrawText(banner, new Point((size.Width - banner.Width) / 2, 16));
         }
+
+        if (debug.ShowHitboxes)
+            DrawHitboxes(dc, world);
+        if (debug.ShowVelocity)
+            DrawVelocities(dc, world);
+        DrawAi(dc, world);
+        DrawPanel(dc, world, size);
+    }
+
+    private void DrawNav(DrawingContext dc, GameWorld world)
+    {
+        var nav = world.Nav;
+        var blocked = _draw.Brush(Color.FromArgb(70, 255, 64, 96));
+        var cell = NavGrid.Cell;
+        for (var y = 0; y < nav.Rows; y++)
+        {
+            for (var x = 0; x < nav.Cols; x++)
+            {
+                if (!nav.CellBlocked(x, y))
+                    continue;
+                dc.DrawRectangle(blocked, null, new Rect(x * cell, y * cell, cell, cell));
+            }
+        }
+
+        var boxPen = _draw.Pen(Color.FromArgb(160, 80, 220, 255), 1.5);
+        if (world.CollideWindows)
+        {
+            foreach (var box in world.Windows.Boxes)
+                dc.DrawRectangle(null, boxPen, new Rect(box.Left, box.Top, box.Right - box.Left, box.Bottom - box.Top));
+        }
+
+        var t = world.DrawAlpha;
+        foreach (var tank in world.Tanks)
+        {
+            if (!tank.Alive)
+                continue;
+            var path = tank.Brain.Path;
+            if (path.Count < 2)
+                continue;
+            var color = Color.FromArgb(230, tank.Fill.R, tank.Fill.G, tank.Fill.B);
+            var pen = _draw.Pen(color, 2.4);
+            var dot = _draw.Brush(color);
+            var node = _draw.Brush(Color.FromArgb(180, tank.Fill.R, tank.Fill.G, tank.Fill.B));
+            for (var i = 1; i < path.Count; i++)
+            {
+                var a = path[i - 1];
+                var b = path[i];
+                dc.DrawLine(pen, new Point(a.X, a.Y), new Point(b.X, b.Y));
+                dc.DrawEllipse(node, null, new Point(b.X, b.Y), 3.5, 3.5);
+            }
+            dc.DrawEllipse(dot, null, new Point(tank.DrawX(t), tank.DrawY(t)), 4, 4);
+            var goal = path[^1];
+            dc.DrawEllipse(null, pen, new Point(goal.X, goal.Y), 6, 6);
+        }
+    }
+
+    private void DrawHash(DrawingContext dc, GameWorld world)
+    {
+        var cell = SpatialHash.CellSize;
+        var pen = _draw.Pen(Color.FromArgb(90, 255, 220, 80), 1);
+        world.ForEachHashCell((cx, cy, count) =>
+        {
+            var alpha = (byte)Math.Clamp(40 + count * 28, 40, 160);
+            var fill = _draw.Brush(Color.FromArgb(alpha, 255, 200, 40));
+            dc.DrawRectangle(fill, pen, new Rect(cx * cell, cy * cell, cell, cell));
+        });
     }
 
     private void DrawHitboxes(DrawingContext dc, GameWorld world)
@@ -70,6 +133,8 @@ internal sealed class DebugOverlay
         {
             if (!tank.Alive || !tank.Brain.HasTarget)
                 continue;
+            if (world.CollideWindows && !world.Windows.CanSee(tank.DrawX(t), tank.DrawY(t), tank.Brain.AimX, tank.Brain.AimY))
+                continue;
             var pen = _draw.Pen(tank.Brain.Fleeing
                 ? Color.FromArgb(200, 255, 80, 80)
                 : Color.FromArgb(180, tank.Fill.R, tank.Fill.G, tank.Fill.B), 1.5);
@@ -93,6 +158,10 @@ internal sealed class DebugOverlay
         sb.AppendLine($"fps {d.Fps:0.0}   {d.FrameMs:0.00} ms   interp {(world.Interpolate ? $"on {d.Alpha:0.00}" : "off")}");
         sb.AppendLine($"phys {GameWorld.TicksPerSecond} tps   tick #{d.Tick}   {(d.Paused ? "PAUSED" : "running")}");
         sb.AppendLine($"tanks {world.Tanks.Count}   shapes {world.Shapes.Count}   bullets {world.Bullets.Count}   hash {d.HashCells}/{d.HashPairs}");
+        if (world.ShowNav)
+            sb.AppendLine($"nav {world.Nav.Cols}x{world.Nav.Rows}  blocked {world.Nav.BlockedCount}  cell {NavGrid.Cell}");
+        if (world.ShowHash)
+            sb.AppendLine($"hash cells {d.HashCells}  pairs {d.HashPairs}  cell {SpatialHash.CellSize}");
         if (t is not null)
         {
             sb.AppendLine($"sel {t.Class.Name} ({t.X:0},{t.Y:0})  v ({t.Vx:0},{t.Vy:0})");

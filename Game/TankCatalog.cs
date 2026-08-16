@@ -50,6 +50,11 @@ public enum TankId
     Factory = 52,
     Skimmer = 54,
     Rocketeer = 55,
+    Guardian = 100,
+    Summoner = 101,
+    Defender = 102,
+    FallenBooster = 103,
+    FallenOverlord = 104,
 }
 
 public enum ProjectileKind
@@ -71,6 +76,8 @@ public sealed class BulletDef
 {
     public ProjectileKind Type;
     public double SizeRatio, Health, Damage, Speed, ScatterRate, LifeLength, Absorption;
+    public int Sides;
+    public bool NeutralColor;
 }
 
 public sealed class BarrelDef
@@ -92,6 +99,8 @@ public sealed class TankDef
     public string? PostAddon;
     public int Sides;
     public double Speed;
+    public bool IsBoss;
+    public string? BossAltName;
     public BarrelDef[] Barrels = [];
 }
 
@@ -364,7 +373,116 @@ internal static class TankCatalog
         ] },
     ];
 
-    private static readonly Dictionary<TankId, TankDef> Map = All.ToDictionary(t => t.Id);
+    public static readonly TankDef[] Bosses =
+    [
+        new()
+        {
+            Id = TankId.Guardian, Name = "Guardian", BossAltName = "Guardian of the Pentagons", IsBoss = true,
+            LevelRequirement = 75, Speed = 0.55, Sides = 3, PreAddon = null, PostAddon = null, Upgrades = [],
+            Barrels =
+            [
+                // Petite rear trapezoid like the wiki Guardian (not diepcustom's oversized 100×71.4 stub).
+                new()
+                {
+                    Angle = Math.PI, Offset = 0, Size = 52, Width = 48, Delay = 0, Reload = 0.36, Recoil = 1,
+                    IsTrapezoid = true, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 24,
+                    CanControlDrones = true, ForceFire = false,
+                    Bullet = new()
+                    {
+                        Type = ProjectileKind.Drone, SizeRatio = 0.85, Health = 12.5, Damage = 0.56,
+                        Speed = 1.7, ScatterRate = 1, LifeLength = 1.5, Absorption = 1, Sides = 3
+                    }
+                },
+            ]
+        },
+        new()
+        {
+            Id = TankId.Summoner, Name = "Summoner", IsBoss = true,
+            LevelRequirement = 75, Speed = 0.5, Sides = 4, PreAddon = null, PostAddon = null, Upgrades = [],
+            Barrels =
+            [
+                SummonerGun(0),
+                SummonerGun(Math.PI * 0.5),
+                SummonerGun(Math.PI),
+                SummonerGun(Math.PI * 1.5),
+            ]
+        },
+        new()
+        {
+            Id = TankId.Defender, Name = "Defender", IsBoss = true,
+            LevelRequirement = 75, Speed = 0.22, Sides = 3, PreAddon = null, PostAddon = "defender", Upgrades = [],
+            Barrels =
+            [
+                DefenderTrap(Math.PI * 2 * (0 / 3.0 + 1.0 / 6.0)),
+                DefenderTrap(Math.PI * 2 * (1 / 3.0 + 1.0 / 6.0)),
+                DefenderTrap(Math.PI * 2 * (2 / 3.0 + 1.0 / 6.0)),
+            ]
+        },
+        new()
+        {
+            Id = TankId.FallenBooster, Name = "Fallen Booster", IsBoss = true,
+            LevelRequirement = 75, Speed = 1.05, Sides = 1, PreAddon = null, PostAddon = null, Upgrades = [],
+            Barrels =
+            [
+                new() { Angle = 0, Offset = 0, Size = 95, Width = 42, Delay = 0, Reload = 1, Recoil = 0.2, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 6.25, Damage = 0.8, Speed = 1.7, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+                new() { Angle = 3.92699081698724, Offset = 0, Size = 70, Width = 42, Delay = 0.66, Reload = 1, Recoil = 0.2, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 6.25, Damage = 0.16, Speed = 1.7, ScatterRate = 1, LifeLength = 0.5, Absorption = 1 } },
+                new() { Angle = 2.35619449019234, Offset = 0, Size = 70, Width = 42, Delay = 0.66, Reload = 1, Recoil = 0.2, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 6.25, Damage = 0.16, Speed = 1.7, ScatterRate = 1, LifeLength = 0.5, Absorption = 1 } },
+                new() { Angle = 3.66519142918809, Offset = 0, Size = 80, Width = 42, Delay = 0.33, Reload = 1, Recoil = 2.5, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 6.25, Damage = 0.16, Speed = 1.7, ScatterRate = 1, LifeLength = 0.5, Absorption = 1 } },
+                new() { Angle = 2.61799387799149, Offset = 0, Size = 80, Width = 42, Delay = 0.33, Reload = 1, Recoil = 2.5, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 6.25, Damage = 0.16, Speed = 1.7, ScatterRate = 1, LifeLength = 0.5, Absorption = 1 } },
+            ]
+        },
+        new()
+        {
+            Id = TankId.FallenOverlord, Name = "Fallen Overlord", IsBoss = true,
+            LevelRequirement = 75, Speed = 0.5, Sides = 1, PreAddon = null, PostAddon = null, Upgrades = [],
+            Barrels =
+            [
+                FallenOverlordGun(-Math.PI * 0.5),
+                FallenOverlordGun(Math.PI * 0.5),
+                FallenOverlordGun(0),
+                FallenOverlordGun(Math.PI),
+            ]
+        },
+    ];
+
+    private static BarrelDef SummonerGun(double angle) => new()
+    {
+        Angle = angle, Offset = 0, Size = 58, Width = 38, Delay = 0, Reload = 0.36, Recoil = 1,
+        IsTrapezoid = true, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 7,
+        CanControlDrones = true, ForceFire = false,
+        Bullet = new()
+        {
+            Type = ProjectileKind.Drone, SizeRatio = 0.9, Health = 12.5, Damage = 0.56,
+            Speed = 1.7, ScatterRate = 1, LifeLength = -1, Absorption = 1, Sides = 4
+        }
+    };
+
+    private static BarrelDef DefenderTrap(double angle) => new()
+    {
+        Angle = angle, Offset = 0, Size = 55, Width = 40, Delay = 0, Reload = 5, Recoil = 2,
+        IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = "trapLauncher", DroneCount = 0,
+        CanControlDrones = false, ForceFire = true,
+        Bullet = new()
+        {
+            Type = ProjectileKind.Trap, SizeRatio = 0.8, Health = 12.5, Damage = 4, Speed = 5,
+            ScatterRate = 1, LifeLength = 8, Absorption = 1, NeutralColor = true
+        }
+    };
+
+    private static BarrelDef FallenOverlordGun(double angle) => new()
+    {
+        Angle = angle, Offset = 0, Size = 70, Width = 42, Delay = 0, Reload = 0.36, Recoil = 1,
+        IsTrapezoid = true, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 7,
+        CanControlDrones = true, ForceFire = false,
+        Bullet = new()
+        {
+            Type = ProjectileKind.Drone, SizeRatio = 0.5, Health = 12.5, Damage = 0.56, Speed = 1.7,
+            ScatterRate = 1, LifeLength = -1, Absorption = 1, Sides = 3
+        }
+    };
+
+    private static readonly Dictionary<TankId, TankDef> Map =
+        All.Concat(Bosses).ToDictionary(t => t.Id);
 
     public static bool TryGet(TankId id, out TankDef def) => Map.TryGetValue(id, out def!);
 

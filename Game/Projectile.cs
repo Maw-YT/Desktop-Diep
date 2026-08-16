@@ -47,7 +47,9 @@ internal static class Projectile
                 break;
             case ProjectileKind.Drone:
             case ProjectileKind.Swarm:
-                shot.Sides = 3;
+                shot.Sides = barrel.Bullet.Sides > 0 ? barrel.Bullet.Sides : 3;
+                if (shot.Sides == 4)
+                    shot.Fill = DiepColors.NecroSquare;
                 shot.Life = barrel.Bullet.LifeLength < 0 ? 1e9 : 88 * barrel.Bullet.LifeLength;
                 shot.Vx /= 3;
                 shot.Vy /= 3;
@@ -155,6 +157,9 @@ internal static class Projectile
 
         b.Angle = b.MovementAngle = angle;
         DiepPhysics.MaintainVelocity(ref b.Vx, ref b.Vy, angle, accel);
+        // Keep the tip locked on the aim, not lagged velocity.
+        if (b.Sides == 3)
+            b.Angle = angle;
     }
 
     private static void TickRest(BulletEntity b, TankEntity owner, double accel)

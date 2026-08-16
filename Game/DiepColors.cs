@@ -31,7 +31,11 @@ internal static class DiepColors
     public static readonly Color Square = Color.FromRgb(0xFF, 0xE8, 0x69);
     public static readonly Color Triangle = Color.FromRgb(0xFC, 0x76, 0x77);
     public static readonly Color Pentagon = Color.FromRgb(0x76, 0x8D, 0xFC);
+    public static readonly Color AlphaPentagon = Color.FromRgb(0x76, 0x8D, 0xFC);
     public static readonly Color Crasher = Color.FromRgb(0xF1, 0x77, 0xDD);
+    public static readonly Color ArenaCloser = Color.FromRgb(0xFF, 0xE8, 0x69);
+    public static readonly Color Fallen = Color.FromRgb(0xC0, 0xC0, 0xC0);
+    public static readonly Color Neutral = Color.FromRgb(0xFF, 0xE8, 0x69);
     public static readonly Color HealthBack = Color.FromRgb(0x55, 0x55, 0x55);
     public static readonly Color Health = Color.FromRgb(0x85, 0xE3, 0x7D);
     public static readonly Color Xp = Color.FromRgb(0xF0, 0xD9, 0x4A);

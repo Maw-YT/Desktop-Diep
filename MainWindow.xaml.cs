@@ -36,6 +36,7 @@ public partial class MainWindow : Window
         var source = (HwndSource)PresentationSource.FromVisual(this)!;
         _source = source;
         Win32.ApplyPetWindowStyle(source);
+        Canvas.World.OverlayHwnd = source.Handle;
 
         _hotkeys = new HotkeyService(source);
         _hotkeys.ToggleDebug += Canvas.ToggleDebug;
@@ -47,8 +48,15 @@ public partial class MainWindow : Window
         _tray.TogglePause += () => Dispatcher.Invoke(Canvas.TogglePause);
         _tray.ToggleInterpolate += () => Dispatcher.Invoke(Canvas.ToggleInterpolate);
         _tray.ToggleSelectionHalo += () => Dispatcher.Invoke(Canvas.ToggleSelectionHalo);
+        _tray.ToggleNav += () => Dispatcher.Invoke(Canvas.ToggleNav);
+        _tray.ToggleHash += () => Dispatcher.Invoke(Canvas.ToggleHash);
+        _tray.ToggleWindowCollisions += () => Dispatcher.Invoke(Canvas.ToggleWindowCollisions);
+        _tray.ToggleCursorCollisions += () => Dispatcher.Invoke(Canvas.ToggleCursorCollisions);
         _tray.Reset += () => Dispatcher.Invoke(Canvas.ResetWorld);
         _tray.Spawn += () => Dispatcher.Invoke(Canvas.SpawnTank);
+        _tray.SpawnShape += kind => Dispatcher.Invoke(() => Canvas.SpawnShape(kind));
+        _tray.SpawnBoss += kind => Dispatcher.Invoke(() => Canvas.SpawnBoss(kind));
+        _tray.CloseArena += () => Dispatcher.Invoke(Canvas.CloseArena);
         _tray.RemoveSelected += () => Dispatcher.Invoke(Canvas.RemoveSelected);
         _tray.SelectTank += i => Dispatcher.Invoke(() => Canvas.SelectTank(i));
         _tray.SetStat += (s, v) => Dispatcher.Invoke(() => Canvas.SetStat(s, v));
@@ -65,6 +73,11 @@ public partial class MainWindow : Window
         if (frame == _lastTrayFrame) return;
         _lastTrayFrame = frame;
         _tray.Sync(Canvas.World);
+        if (Canvas.World.ExitRequested)
+        {
+            Close();
+            return;
+        }
         if (_source is not null)
             Win32.SetClickThrough(_source, !Canvas.World.Cursor.WantsCapture);
     }
@@ -72,6 +85,7 @@ public partial class MainWindow : Window
     private void OnClosed(object? sender, EventArgs e)
     {
         CompositionTarget.Rendering -= SyncTray;
+        AppSettings.SaveFrom(Canvas.World);
         _hotkeys?.Dispose();
         _tray?.Dispose();
     }
