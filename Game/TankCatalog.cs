@@ -1,0 +1,373 @@
+namespace DesktopDiep;
+
+public enum TankId
+{
+    Basic = 0,
+    Twin = 1,
+    Triplet = 2,
+    TripleShot = 3,
+    QuadTank = 4,
+    OctoTank = 5,
+    Sniper = 6,
+    MachineGun = 7,
+    FlankGuard = 8,
+    TriAngle = 9,
+    Destroyer = 10,
+    Overseer = 11,
+    Overlord = 12,
+    TwinFlank = 13,
+    PentaShot = 14,
+    Assassin = 15,
+    Necromancer = 17,
+    TripleTwin = 18,
+    Hunter = 19,
+    Gunner = 20,
+    Stalker = 21,
+    Ranger = 22,
+    Booster = 23,
+    Fighter = 24,
+    Hybrid = 25,
+    Manager = 26,
+    Predator = 28,
+    Sprayer = 29,
+    Trapper = 31,
+    GunnerTrapper = 32,
+    Overtrapper = 33,
+    MegaTrapper = 34,
+    TriTrapper = 35,
+    Smasher = 36,
+    Landmine = 38,
+    AutoGunner = 39,
+    Auto5 = 40,
+    Auto3 = 41,
+    SpreadShot = 42,
+    Streamliner = 43,
+    AutoTrapper = 44,
+    Battleship = 48,
+    Annihilator = 49,
+    AutoSmasher = 50,
+    Spike = 51,
+    Factory = 52,
+    Skimmer = 54,
+    Rocketeer = 55,
+}
+
+public enum ProjectileKind
+{
+    Bullet,
+    Trap,
+    Drone,
+    Swarm,
+    Necrodrone,
+    Minion,
+    Skimmer,
+    Rocket,
+    Flame,
+    Croc,
+    Wall
+}
+
+public sealed class BulletDef
+{
+    public ProjectileKind Type;
+    public double SizeRatio, Health, Damage, Speed, ScatterRate, LifeLength, Absorption;
+}
+
+public sealed class BarrelDef
+{
+    public double Angle, Offset, Size, Width, Delay, Reload, Recoil, TrapezoidDirection, Distance;
+    public bool IsTrapezoid, ForceFire, CanControlDrones;
+    public int DroneCount;
+    public string? Addon;
+    public BulletDef Bullet = null!;
+}
+
+public sealed class TankDef
+{
+    public TankId Id;
+    public string Name = "";
+    public int LevelRequirement;
+    public TankId[] Upgrades = [];
+    public string? PreAddon;
+    public string? PostAddon;
+    public int Sides;
+    public double Speed;
+    public BarrelDef[] Barrels = [];
+}
+
+internal static class TankCatalog
+{
+    public static readonly TankDef[] All =
+    [
+        new() { Id = TankId.Basic, Name = "Tank", LevelRequirement = 0, Speed = 1, Sides = 1, PreAddon = null, PostAddon = null, Upgrades = [TankId.Twin, TankId.Sniper, TankId.MachineGun, TankId.FlankGuard, TankId.Smasher], Barrels =
+        [
+            new() { Angle = 0, Offset = 0, Size = 95, Width = 42, Delay = 0, Reload = 1, Recoil = 1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 1, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+        ] },
+        new() { Id = TankId.Twin, Name = "Twin", LevelRequirement = 15, Speed = 1, Sides = 1, PreAddon = null, PostAddon = null, Upgrades = [TankId.TripleShot, TankId.QuadTank, TankId.TwinFlank], Barrels =
+        [
+            new() { Angle = 0, Offset = -26, Size = 95, Width = 42, Delay = 0, Reload = 1, Recoil = 0.75, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 0.9, Damage = 0.65, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = 0, Offset = 26, Size = 95, Width = 42, Delay = 0.5, Reload = 1, Recoil = 0.75, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 0.9, Damage = 0.65, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+        ] },
+        new() { Id = TankId.Triplet, Name = "Triplet", LevelRequirement = 45, Speed = 1, Sides = 1, PreAddon = null, PostAddon = null, Upgrades = [], Barrels =
+        [
+            new() { Angle = 0, Offset = -26, Size = 80, Width = 42, Delay = 0.5, Reload = 1, Recoil = 0.5, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 0.7, Damage = 0.6, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = 0, Offset = 26, Size = 80, Width = 42, Delay = 0.5, Reload = 1, Recoil = 0.5, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 0.7, Damage = 0.6, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = 0, Offset = 0, Size = 95, Width = 42, Delay = 0, Reload = 1, Recoil = 0.5, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 0.7, Damage = 0.6, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+        ] },
+        new() { Id = TankId.TripleShot, Name = "Triple Shot", LevelRequirement = 30, Speed = 1, Sides = 1, PreAddon = null, PostAddon = null, Upgrades = [TankId.Triplet, TankId.PentaShot, TankId.SpreadShot], Barrels =
+        [
+            new() { Angle = -0.785398163397448, Offset = 0, Size = 95, Width = 42, Delay = 0, Reload = 1, Recoil = 1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.7, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = 0.785398163397448, Offset = 0, Size = 95, Width = 42, Delay = 0, Reload = 1, Recoil = 1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.7, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = 0, Offset = 0, Size = 95, Width = 42, Delay = 0, Reload = 1, Recoil = 1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.7, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+        ] },
+        new() { Id = TankId.QuadTank, Name = "Quad Tank", LevelRequirement = 30, Speed = 1, Sides = 1, PreAddon = null, PostAddon = null, Upgrades = [TankId.OctoTank, TankId.Auto5], Barrels =
+        [
+            new() { Angle = 3.14159265358979, Offset = 0, Size = 95, Width = 42, Delay = 0, Reload = 1, Recoil = 1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.75, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = -1.5707963267949, Offset = 0, Size = 95, Width = 42, Delay = 0, Reload = 1, Recoil = 1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.75, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = 1.5707963267949, Offset = 0, Size = 95, Width = 42, Delay = 0, Reload = 1, Recoil = 1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.75, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = 0, Offset = 0, Size = 95, Width = 42, Delay = 0, Reload = 1, Recoil = 1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.75, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+        ] },
+        new() { Id = TankId.OctoTank, Name = "Octo Tank", LevelRequirement = 45, Speed = 1, Sides = 1, PreAddon = null, PostAddon = null, Upgrades = [], Barrels =
+        [
+            new() { Angle = -0.785398163397448, Offset = 0, Size = 95, Width = 42, Delay = 0.5, Reload = 1, Recoil = 1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.65, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = 0.785398163397448, Offset = 0, Size = 95, Width = 42, Delay = 0.5, Reload = 1, Recoil = 1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.65, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = -2.35619449019234, Offset = 0, Size = 95, Width = 42, Delay = 0.5, Reload = 1, Recoil = 1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.65, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = 2.35619449019234, Offset = 0, Size = 95, Width = 42, Delay = 0.5, Reload = 1, Recoil = 1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.65, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = 3.14159265358979, Offset = 0, Size = 95, Width = 42, Delay = 0, Reload = 1, Recoil = 1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.65, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = -1.5707963267949, Offset = 0, Size = 95, Width = 42, Delay = 0, Reload = 1, Recoil = 1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.65, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = 1.5707963267949, Offset = 0, Size = 95, Width = 42, Delay = 0, Reload = 1, Recoil = 1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.65, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = 0, Offset = 0, Size = 95, Width = 42, Delay = 0, Reload = 1, Recoil = 1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.65, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+        ] },
+        new() { Id = TankId.Sniper, Name = "Sniper", LevelRequirement = 15, Speed = 1, Sides = 1, PreAddon = null, PostAddon = null, Upgrades = [TankId.Assassin, TankId.Overseer, TankId.Hunter, TankId.Trapper], Barrels =
+        [
+            new() { Angle = 0, Offset = 0, Size = 110, Width = 42, Delay = 0, Reload = 1.5, Recoil = 3, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 1, Speed = 1.5, ScatterRate = 0.3, LifeLength = 1, Absorption = 1 } },
+        ] },
+        new() { Id = TankId.MachineGun, Name = "Machine Gun", LevelRequirement = 15, Speed = 1, Sides = 1, PreAddon = null, PostAddon = null, Upgrades = [TankId.Destroyer, TankId.Gunner, TankId.Sprayer], Barrels =
+        [
+            new() { Angle = 0, Offset = 0, Size = 95, Width = 42, Delay = 0, Reload = 0.5, Recoil = 1, IsTrapezoid = true, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.7, Speed = 1, ScatterRate = 3, LifeLength = 1, Absorption = 1 } },
+        ] },
+        new() { Id = TankId.FlankGuard, Name = "Flank Guard", LevelRequirement = 15, Speed = 1, Sides = 1, PreAddon = null, PostAddon = null, Upgrades = [TankId.TriAngle, TankId.QuadTank, TankId.TwinFlank, TankId.Auto3], Barrels =
+        [
+            new() { Angle = 0, Offset = 0, Size = 95, Width = 42, Delay = 0, Reload = 1, Recoil = 1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 1, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = 3.14159265358979, Offset = 0, Size = 80, Width = 42, Delay = 0, Reload = 1, Recoil = 1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 1, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+        ] },
+        new() { Id = TankId.TriAngle, Name = "Tri-Angle", LevelRequirement = 30, Speed = 1, Sides = 1, PreAddon = null, PostAddon = null, Upgrades = [TankId.Booster, TankId.Fighter], Barrels =
+        [
+            new() { Angle = 0, Offset = 0, Size = 95, Width = 42, Delay = 0, Reload = 1, Recoil = 0.2, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 1, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = 3.66519142918809, Offset = 0, Size = 80, Width = 42, Delay = 0.5, Reload = 1, Recoil = 2.5, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.2, Speed = 1, ScatterRate = 1, LifeLength = 0.5, Absorption = 1 } },
+            new() { Angle = 2.61799387799149, Offset = 0, Size = 80, Width = 42, Delay = 0.5, Reload = 1, Recoil = 2.5, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.2, Speed = 1, ScatterRate = 1, LifeLength = 0.5, Absorption = 1 } },
+        ] },
+        new() { Id = TankId.Destroyer, Name = "Destroyer", LevelRequirement = 30, Speed = 1, Sides = 1, PreAddon = null, PostAddon = null, Upgrades = [TankId.Hybrid, TankId.Annihilator, TankId.Skimmer, TankId.Rocketeer], Barrels =
+        [
+            new() { Angle = 0, Offset = 0, Size = 95, Width = 71.4, Delay = 0, Reload = 4, Recoil = 15, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 2, Damage = 3, Speed = 0.7, ScatterRate = 1, LifeLength = 1, Absorption = 0.1 } },
+        ] },
+        new() { Id = TankId.Overseer, Name = "Overseer", LevelRequirement = 30, Speed = 1, Sides = 1, PreAddon = null, PostAddon = null, Upgrades = [TankId.Overlord, TankId.Necromancer, TankId.Manager, TankId.Overtrapper, TankId.Battleship, TankId.Factory], Barrels =
+        [
+            new() { Angle = -1.5707963267949, Offset = 0, Size = 70, Width = 42, Delay = 0, Reload = 6, Recoil = 1, IsTrapezoid = true, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 4, CanControlDrones = true, ForceFire = false, Bullet = new() { Type = ProjectileKind.Drone, SizeRatio = 1, Health = 2, Damage = 0.7, Speed = 0.8, ScatterRate = 1, LifeLength = -1, Absorption = 1 } },
+            new() { Angle = 1.5707963267949, Offset = 0, Size = 70, Width = 42, Delay = 0, Reload = 6, Recoil = 1, IsTrapezoid = true, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 4, CanControlDrones = true, ForceFire = false, Bullet = new() { Type = ProjectileKind.Drone, SizeRatio = 1, Health = 2, Damage = 0.7, Speed = 0.8, ScatterRate = 1, LifeLength = -1, Absorption = 1 } },
+        ] },
+        new() { Id = TankId.Overlord, Name = "Overlord", LevelRequirement = 45, Speed = 1, Sides = 1, PreAddon = null, PostAddon = null, Upgrades = [], Barrels =
+        [
+            new() { Angle = -1.5707963267949, Offset = 0, Size = 70, Width = 42, Delay = 0, Reload = 6, Recoil = 1, IsTrapezoid = true, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 2, CanControlDrones = true, ForceFire = false, Bullet = new() { Type = ProjectileKind.Drone, SizeRatio = 1, Health = 2, Damage = 0.7, Speed = 0.8, ScatterRate = 1, LifeLength = -1, Absorption = 1 } },
+            new() { Angle = 1.5707963267949, Offset = 0, Size = 70, Width = 42, Delay = 0, Reload = 6, Recoil = 1, IsTrapezoid = true, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 2, CanControlDrones = true, ForceFire = false, Bullet = new() { Type = ProjectileKind.Drone, SizeRatio = 1, Health = 2, Damage = 0.7, Speed = 0.8, ScatterRate = 1, LifeLength = -1, Absorption = 1 } },
+            new() { Angle = 0, Offset = 0, Size = 70, Width = 42, Delay = 0, Reload = 6, Recoil = 1, IsTrapezoid = true, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 2, CanControlDrones = true, ForceFire = false, Bullet = new() { Type = ProjectileKind.Drone, SizeRatio = 1, Health = 2, Damage = 0.7, Speed = 0.8, ScatterRate = 1, LifeLength = -1, Absorption = 1 } },
+            new() { Angle = 3.14159265358979, Offset = 0, Size = 70, Width = 42, Delay = 0, Reload = 6, Recoil = 1, IsTrapezoid = true, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 2, CanControlDrones = true, ForceFire = false, Bullet = new() { Type = ProjectileKind.Drone, SizeRatio = 1, Health = 2, Damage = 0.7, Speed = 0.8, ScatterRate = 1, LifeLength = -1, Absorption = 1 } },
+        ] },
+        new() { Id = TankId.TwinFlank, Name = "Twin Flank", LevelRequirement = 30, Speed = 1, Sides = 1, PreAddon = null, PostAddon = null, Upgrades = [TankId.TripleTwin, TankId.Battleship], Barrels =
+        [
+            new() { Angle = 0, Offset = -26, Size = 95, Width = 42, Delay = 0, Reload = 1, Recoil = 1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.5, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = 0, Offset = 26, Size = 95, Width = 42, Delay = 0.5, Reload = 1, Recoil = 1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.5, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = 3.14159265358979, Offset = -26, Size = 95, Width = 42, Delay = 0, Reload = 1, Recoil = 1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.5, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = 3.14159265358979, Offset = 26, Size = 95, Width = 42, Delay = 0.5, Reload = 1, Recoil = 1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.5, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+        ] },
+        new() { Id = TankId.PentaShot, Name = "Penta Shot", LevelRequirement = 45, Speed = 1, Sides = 1, PreAddon = null, PostAddon = null, Upgrades = [], Barrels =
+        [
+            new() { Angle = -0.785398163397448, Offset = 0, Size = 80, Width = 42, Delay = 0.66, Reload = 1, Recoil = 0.7, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.55, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = 0.785398163397448, Offset = 0, Size = 80, Width = 42, Delay = 0.66, Reload = 1, Recoil = 0.7, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.55, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = -0.392699081698724, Offset = 0, Size = 95, Width = 42, Delay = 0.33, Reload = 1, Recoil = 0.7, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.55, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = 0.392699081698724, Offset = 0, Size = 95, Width = 42, Delay = 0.33, Reload = 1, Recoil = 0.7, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.55, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = 0, Offset = 0, Size = 110, Width = 42, Delay = 0, Reload = 1, Recoil = 0.7, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.55, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+        ] },
+        new() { Id = TankId.Assassin, Name = "Assassin", LevelRequirement = 30, Speed = 1, Sides = 1, PreAddon = null, PostAddon = null, Upgrades = [TankId.Ranger, TankId.Stalker], Barrels =
+        [
+            new() { Angle = 0, Offset = 0, Size = 120, Width = 42, Delay = 0, Reload = 2, Recoil = 3, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 1, Speed = 1.5, ScatterRate = 0.3, LifeLength = 1, Absorption = 1 } },
+        ] },
+        new() { Id = TankId.Necromancer, Name = "Necromancer", LevelRequirement = 45, Speed = 1, Sides = 4, PreAddon = null, PostAddon = null, Upgrades = [], Barrels =
+        [
+            new() { Angle = -1.5707963267949, Offset = 0, Size = 70, Width = 42, Delay = 0, Reload = 6, Recoil = 1, IsTrapezoid = true, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 11, CanControlDrones = true, ForceFire = false, Bullet = new() { Type = ProjectileKind.Necrodrone, SizeRatio = 1, Health = 2, Damage = 0.42, Speed = 0.72, ScatterRate = 1, LifeLength = -1, Absorption = 1 } },
+            new() { Angle = 1.5707963267949, Offset = 0, Size = 70, Width = 42, Delay = 0, Reload = 6, Recoil = 1, IsTrapezoid = true, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 11, CanControlDrones = true, ForceFire = false, Bullet = new() { Type = ProjectileKind.Necrodrone, SizeRatio = 1, Health = 2, Damage = 0.42, Speed = 0.72, ScatterRate = 1, LifeLength = -1, Absorption = 1 } },
+        ] },
+        new() { Id = TankId.TripleTwin, Name = "Triple Twin", LevelRequirement = 45, Speed = 1, Sides = 1, PreAddon = null, PostAddon = null, Upgrades = [], Barrels =
+        [
+            new() { Angle = 0, Offset = -26, Size = 95, Width = 42, Delay = 0, Reload = 1, Recoil = 1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.5, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = 0, Offset = 26, Size = 95, Width = 42, Delay = 0.5, Reload = 1, Recoil = 1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.5, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = 2.0943951023932, Offset = -26, Size = 95, Width = 42, Delay = 0, Reload = 1, Recoil = 1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.5, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = 2.0943951023932, Offset = 26, Size = 95, Width = 42, Delay = 0.5, Reload = 1, Recoil = 1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.5, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = -2.0943951023932, Offset = -26, Size = 95, Width = 42, Delay = 0, Reload = 1, Recoil = 1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.5, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = -2.0943951023932, Offset = 26, Size = 95, Width = 42, Delay = 0.5, Reload = 1, Recoil = 1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.5, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+        ] },
+        new() { Id = TankId.Hunter, Name = "Hunter", LevelRequirement = 30, Speed = 1, Sides = 1, PreAddon = null, PostAddon = null, Upgrades = [TankId.Predator, TankId.Streamliner], Barrels =
+        [
+            new() { Angle = 0, Offset = 0, Size = 110, Width = 42, Delay = 0, Reload = 2.5, Recoil = 0.3, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 0.7, Health = 1, Damage = 0.75, Speed = 1.4, ScatterRate = 0.3, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = 0, Offset = 0, Size = 95, Width = 56.7, Delay = 0.2, Reload = 2.5, Recoil = 0.3, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 0.7, Health = 1, Damage = 0.75, Speed = 1.4, ScatterRate = 0.3, LifeLength = 1, Absorption = 1 } },
+        ] },
+        new() { Id = TankId.Gunner, Name = "Gunner", LevelRequirement = 30, Speed = 1, Sides = 1, PreAddon = null, PostAddon = null, Upgrades = [TankId.AutoGunner, TankId.GunnerTrapper, TankId.Streamliner], Barrels =
+        [
+            new() { Angle = 0, Offset = -32, Size = 65, Width = 25.2, Delay = 0.5, Reload = 1, Recoil = 0.2, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 0.45, Damage = 0.5, Speed = 1.1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = 0, Offset = 32, Size = 65, Width = 25.2, Delay = 0.75, Reload = 1, Recoil = 0.2, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 0.45, Damage = 0.5, Speed = 1.1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = 0, Offset = -17, Size = 85, Width = 25.2, Delay = 0, Reload = 1, Recoil = 0.2, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 0.45, Damage = 0.5, Speed = 1.1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = 0, Offset = 17, Size = 85, Width = 25.2, Delay = 0.25, Reload = 1, Recoil = 0.2, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 0.45, Damage = 0.5, Speed = 1.1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+        ] },
+        new() { Id = TankId.Stalker, Name = "Stalker", LevelRequirement = 45, Speed = 1, Sides = 1, PreAddon = null, PostAddon = null, Upgrades = [], Barrels =
+        [
+            new() { Angle = 0, Offset = 0, Size = 120, Width = 42, Delay = 0, Reload = 2, Recoil = 3, IsTrapezoid = true, TrapezoidDirection = 3.14159265358979, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 1, Speed = 1.5, ScatterRate = 0.3, LifeLength = 1, Absorption = 1 } },
+        ] },
+        new() { Id = TankId.Ranger, Name = "Ranger", LevelRequirement = 45, Speed = 1, Sides = 1, PreAddon = null, PostAddon = "pronounced", Upgrades = [], Barrels =
+        [
+            new() { Angle = 0, Offset = 0, Size = 120, Width = 42, Delay = 0, Reload = 2, Recoil = 3, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 1, Speed = 1.5, ScatterRate = 0.3, LifeLength = 1, Absorption = 1 } },
+        ] },
+        new() { Id = TankId.Booster, Name = "Booster", LevelRequirement = 45, Speed = 1, Sides = 1, PreAddon = null, PostAddon = null, Upgrades = [], Barrels =
+        [
+            new() { Angle = 0, Offset = 0, Size = 95, Width = 42, Delay = 0, Reload = 1, Recoil = 0.2, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 1, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = 3.92699081698724, Offset = 0, Size = 70, Width = 42, Delay = 0.66, Reload = 1, Recoil = 0.2, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.2, Speed = 1, ScatterRate = 1, LifeLength = 0.5, Absorption = 1 } },
+            new() { Angle = 2.35619449019234, Offset = 0, Size = 70, Width = 42, Delay = 0.66, Reload = 1, Recoil = 0.2, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.2, Speed = 1, ScatterRate = 1, LifeLength = 0.5, Absorption = 1 } },
+            new() { Angle = 3.66519142918809, Offset = 0, Size = 80, Width = 42, Delay = 0.33, Reload = 1, Recoil = 2.5, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.2, Speed = 1, ScatterRate = 1, LifeLength = 0.5, Absorption = 1 } },
+            new() { Angle = 2.61799387799149, Offset = 0, Size = 80, Width = 42, Delay = 0.33, Reload = 1, Recoil = 2.5, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.2, Speed = 1, ScatterRate = 1, LifeLength = 0.5, Absorption = 1 } },
+        ] },
+        new() { Id = TankId.Fighter, Name = "Fighter", LevelRequirement = 45, Speed = 1, Sides = 1, PreAddon = null, PostAddon = null, Upgrades = [], Barrels =
+        [
+            new() { Angle = 0, Offset = 0, Size = 95, Width = 42, Delay = 0, Reload = 1, Recoil = 0.2, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 1, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = 1.5707963267949, Offset = 0, Size = 80, Width = 42, Delay = 0, Reload = 1.5, Recoil = 1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.8, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = -1.5707963267949, Offset = 0, Size = 80, Width = 42, Delay = 0, Reload = 1.5, Recoil = 1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.8, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = 3.66519142918809, Offset = 0, Size = 80, Width = 42, Delay = 0.5, Reload = 1, Recoil = 2.5, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.2, Speed = 1, ScatterRate = 1, LifeLength = 0.5, Absorption = 1 } },
+            new() { Angle = 2.61799387799149, Offset = 0, Size = 80, Width = 42, Delay = 0.5, Reload = 1, Recoil = 2.5, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.2, Speed = 1, ScatterRate = 1, LifeLength = 0.5, Absorption = 1 } },
+        ] },
+        new() { Id = TankId.Hybrid, Name = "Hybrid", LevelRequirement = 45, Speed = 1, Sides = 1, PreAddon = null, PostAddon = null, Upgrades = [], Barrels =
+        [
+            new() { Angle = 0, Offset = 0, Size = 95, Width = 71.4, Delay = 0, Reload = 4, Recoil = 15, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 2, Damage = 3, Speed = 0.7, ScatterRate = 1, LifeLength = 1, Absorption = 0.1 } },
+            new() { Angle = 3.14159265358979, Offset = 0, Size = 70, Width = 42, Delay = 0, Reload = 6, Recoil = 1, IsTrapezoid = true, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 2, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Drone, SizeRatio = 1, Health = 1.4, Damage = 0.7, Speed = 1, ScatterRate = 1, LifeLength = -1, Absorption = 1 } },
+        ] },
+        new() { Id = TankId.Manager, Name = "Manager", LevelRequirement = 45, Speed = 1, Sides = 1, PreAddon = null, PostAddon = null, Upgrades = [], Barrels =
+        [
+            new() { Angle = 0, Offset = 0, Size = 70, Width = 42, Delay = 0, Reload = 3, Recoil = 1, IsTrapezoid = true, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 8, CanControlDrones = true, ForceFire = false, Bullet = new() { Type = ProjectileKind.Drone, SizeRatio = 1, Health = 2, Damage = 0.7, Speed = 0.8, ScatterRate = 1, LifeLength = -1, Absorption = 1 } },
+        ] },
+        new() { Id = TankId.Predator, Name = "Predator", LevelRequirement = 45, Speed = 1, Sides = 1, PreAddon = null, PostAddon = null, Upgrades = [], Barrels =
+        [
+            new() { Angle = 0, Offset = 0, Size = 110, Width = 42, Delay = 0, Reload = 3, Recoil = 0.3, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 0.7, Health = 1, Damage = 0.75, Speed = 1.4, ScatterRate = 0.3, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = 0, Offset = 0, Size = 95, Width = 56.7, Delay = 0.2, Reload = 3, Recoil = 0.3, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 0.7, Health = 1, Damage = 0.75, Speed = 1.4, ScatterRate = 0.3, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = 0, Offset = 0, Size = 80, Width = 71.4, Delay = 0.4, Reload = 3, Recoil = 0.3, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 0.7, Health = 1, Damage = 0.75, Speed = 1.4, ScatterRate = 0.3, LifeLength = 1, Absorption = 1 } },
+        ] },
+        new() { Id = TankId.Sprayer, Name = "Sprayer", LevelRequirement = 45, Speed = 1, Sides = 1, PreAddon = null, PostAddon = null, Upgrades = [], Barrels =
+        [
+            new() { Angle = 0, Offset = 0, Size = 110, Width = 42, Delay = 0.5, Reload = 1, Recoil = 0, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 0.7, Health = 1, Damage = 0.1, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = 0, Offset = 0, Size = 95, Width = 42, Delay = 0, Reload = 0.5, Recoil = 1, IsTrapezoid = true, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.7, Speed = 1, ScatterRate = 3, LifeLength = 1, Absorption = 1 } },
+        ] },
+        new() { Id = TankId.Trapper, Name = "Trapper", LevelRequirement = 30, Speed = 1, Sides = 1, PreAddon = null, PostAddon = null, Upgrades = [TankId.TriTrapper, TankId.GunnerTrapper, TankId.Overtrapper, TankId.MegaTrapper, TankId.AutoTrapper], Barrels =
+        [
+            new() { Angle = 0, Offset = 0, Size = 60, Width = 42, Delay = 0, Reload = 1.5, Recoil = 1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = "trapLauncher", DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Trap, SizeRatio = 0.8, Health = 2, Damage = 1, Speed = 2, ScatterRate = 1, LifeLength = 8, Absorption = 1 } },
+        ] },
+        new() { Id = TankId.GunnerTrapper, Name = "Gunner Trapper", LevelRequirement = 45, Speed = 1, Sides = 1, PreAddon = null, PostAddon = null, Upgrades = [], Barrels =
+        [
+            new() { Angle = 0, Offset = -16, Size = 75, Width = 21, Delay = 0.66, Reload = 1, Recoil = 1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.5, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = 0, Offset = 16, Size = 75, Width = 21, Delay = 0.33, Reload = 1, Recoil = 1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.5, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = 3.14159265358979, Offset = 0, Size = 60, Width = 54.6, Delay = 0, Reload = 3, Recoil = 1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = "trapLauncher", DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Trap, SizeRatio = 0.8, Health = 2, Damage = 1, Speed = 2, ScatterRate = 1, LifeLength = 8, Absorption = 1 } },
+        ] },
+        new() { Id = TankId.Overtrapper, Name = "Overtrapper", LevelRequirement = 45, Speed = 1, Sides = 1, PreAddon = null, PostAddon = null, Upgrades = [], Barrels =
+        [
+            new() { Angle = 0, Offset = 0, Size = 60, Width = 42, Delay = 0, Reload = 1.5, Recoil = 1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = "trapLauncher", DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Trap, SizeRatio = 0.8, Health = 2, Damage = 1, Speed = 2, ScatterRate = 1, LifeLength = 8, Absorption = 1 } },
+            new() { Angle = 2.0943951023932, Offset = 0, Size = 70, Width = 42, Delay = 0, Reload = 6, Recoil = 1, IsTrapezoid = true, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 1, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Drone, SizeRatio = 1, Health = 1.4, Damage = 0.7, Speed = 1, ScatterRate = 1, LifeLength = -1, Absorption = 1 } },
+            new() { Angle = 4.18879020478639, Offset = 0, Size = 70, Width = 42, Delay = 0, Reload = 6, Recoil = 1, IsTrapezoid = true, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 1, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Drone, SizeRatio = 1, Health = 1.4, Damage = 0.7, Speed = 1, ScatterRate = 1, LifeLength = -1, Absorption = 1 } },
+        ] },
+        new() { Id = TankId.MegaTrapper, Name = "Mega Trapper", LevelRequirement = 45, Speed = 1, Sides = 1, PreAddon = null, PostAddon = null, Upgrades = [], Barrels =
+        [
+            new() { Angle = 0, Offset = 0, Size = 60, Width = 54.6, Delay = 0, Reload = 3.3, Recoil = 1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = "trapLauncher", DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Trap, SizeRatio = 1.28, Health = 3.2, Damage = 1.6, Speed = 2, ScatterRate = 1, LifeLength = 8, Absorption = 1 } },
+        ] },
+        new() { Id = TankId.TriTrapper, Name = "Tri-Trapper", LevelRequirement = 45, Speed = 1, Sides = 1, PreAddon = null, PostAddon = null, Upgrades = [], Barrels =
+        [
+            new() { Angle = 0, Offset = 0, Size = 60, Width = 42, Delay = 0, Reload = 1.5, Recoil = 1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = "trapLauncher", DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Trap, SizeRatio = 0.8, Health = 2, Damage = 1, Speed = 2, ScatterRate = 1, LifeLength = 3.2, Absorption = 1 } },
+            new() { Angle = 2.0943951023932, Offset = 0, Size = 60, Width = 42, Delay = 0, Reload = 1.5, Recoil = 1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = "trapLauncher", DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Trap, SizeRatio = 0.8, Health = 2, Damage = 1, Speed = 2, ScatterRate = 1, LifeLength = 3.2, Absorption = 1 } },
+            new() { Angle = 4.18879020478639, Offset = 0, Size = 60, Width = 42, Delay = 0, Reload = 1.5, Recoil = 1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = "trapLauncher", DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Trap, SizeRatio = 0.8, Health = 2, Damage = 1, Speed = 2, ScatterRate = 1, LifeLength = 3.2, Absorption = 1 } },
+        ] },
+        new() { Id = TankId.Smasher, Name = "Smasher", LevelRequirement = 30, Speed = 1, Sides = 1, PreAddon = null, PostAddon = "smasher", Upgrades = [TankId.Landmine, TankId.AutoSmasher, TankId.Spike], Barrels =
+        [
+        ] },
+        new() { Id = TankId.Landmine, Name = "Landmine", LevelRequirement = 45, Speed = 1, Sides = 1, PreAddon = null, PostAddon = "landmine", Upgrades = [], Barrels =
+        [
+        ] },
+        new() { Id = TankId.AutoGunner, Name = "Auto Gunner", LevelRequirement = 45, Speed = 1, Sides = 1, PreAddon = null, PostAddon = "autoturret", Upgrades = [], Barrels =
+        [
+            new() { Angle = 0, Offset = -32, Size = 65, Width = 25.2, Delay = 0.5, Reload = 1, Recoil = 0.2, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 0.45, Damage = 0.5, Speed = 1.1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = 0, Offset = 32, Size = 65, Width = 25.2, Delay = 0.75, Reload = 1, Recoil = 0.2, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 0.45, Damage = 0.5, Speed = 1.1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = 0, Offset = -17, Size = 85, Width = 25.2, Delay = 0, Reload = 1, Recoil = 0.2, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 0.45, Damage = 0.5, Speed = 1.1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = 0, Offset = 17, Size = 85, Width = 25.2, Delay = 0.25, Reload = 1, Recoil = 0.2, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 0.45, Damage = 0.5, Speed = 1.1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+        ] },
+        new() { Id = TankId.Auto5, Name = "Auto 5", LevelRequirement = 45, Speed = 1, Sides = 1, PreAddon = null, PostAddon = "auto5", Upgrades = [], Barrels =
+        [
+        ] },
+        new() { Id = TankId.Auto3, Name = "Auto 3", LevelRequirement = 30, Speed = 1, Sides = 1, PreAddon = null, PostAddon = "auto3", Upgrades = [TankId.Auto5, TankId.AutoGunner], Barrels =
+        [
+        ] },
+        new() { Id = TankId.SpreadShot, Name = "Spread Shot", LevelRequirement = 45, Speed = 1, Sides = 1, PreAddon = null, PostAddon = null, Upgrades = [], Barrels =
+        [
+            new() { Angle = 1.30899693899575, Offset = 0, Size = 65, Width = 29.4, Delay = 0.833325, Reload = 2, Recoil = 0.1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.6, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = -1.30899693899575, Offset = 0, Size = 65, Width = 29.4, Delay = 0.833325, Reload = 2, Recoil = 0.1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.6, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = 1.0471975511966, Offset = 0, Size = 71, Width = 29.4, Delay = 0.666675, Reload = 2, Recoil = 0.1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.6, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = -1.0471975511966, Offset = 0, Size = 71, Width = 29.4, Delay = 0.666675, Reload = 2, Recoil = 0.1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.6, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = 0.785398163397448, Offset = 0, Size = 77, Width = 29.4, Delay = 0.5, Reload = 2, Recoil = 0.1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.6, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = -0.785398163397448, Offset = 0, Size = 77, Width = 29.4, Delay = 0.5, Reload = 2, Recoil = 0.1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.6, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = 0.523598775598299, Offset = 0, Size = 83, Width = 29.4, Delay = 0.333325, Reload = 2, Recoil = 0.1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.6, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = -0.523598775598299, Offset = 0, Size = 83, Width = 29.4, Delay = 0.333325, Reload = 2, Recoil = 0.1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.6, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = 0.261799387799149, Offset = 0, Size = 89, Width = 29.4, Delay = 0.166675, Reload = 2, Recoil = 0.1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.6, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = -0.261799387799149, Offset = 0, Size = 89, Width = 29.4, Delay = 0.166675, Reload = 2, Recoil = 0.1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 0.6, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = 0, Offset = 0, Size = 95, Width = 42, Delay = 0, Reload = 2, Recoil = 0.1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 1, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+        ] },
+        new() { Id = TankId.Streamliner, Name = "Streamliner", LevelRequirement = 45, Speed = 1, Sides = 1, PreAddon = null, PostAddon = null, Upgrades = [], Barrels =
+        [
+            new() { Angle = 0, Offset = 0, Size = 110, Width = 42, Delay = 0, Reload = 1, Recoil = 0.2, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 0.7, Health = 1, Damage = 0.2, Speed = 1.1, ScatterRate = 0.3, LifeLength = 0.8, Absorption = 1 } },
+            new() { Angle = 0, Offset = 0, Size = 100, Width = 42, Delay = 0.2, Reload = 1, Recoil = 0.2, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 0.7, Health = 1, Damage = 0.2, Speed = 1.1, ScatterRate = 0.3, LifeLength = 0.8, Absorption = 1 } },
+            new() { Angle = 0, Offset = 0, Size = 90, Width = 42, Delay = 0.4, Reload = 1, Recoil = 0.2, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 0.7, Health = 1, Damage = 0.2, Speed = 1.1, ScatterRate = 0.3, LifeLength = 0.8, Absorption = 1 } },
+            new() { Angle = 0, Offset = 0, Size = 80, Width = 42, Delay = 0.6, Reload = 1, Recoil = 0.2, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 0.7, Health = 1, Damage = 0.2, Speed = 1.1, ScatterRate = 0.3, LifeLength = 0.8, Absorption = 1 } },
+            new() { Angle = 0, Offset = 0, Size = 70, Width = 42, Delay = 0.8, Reload = 1, Recoil = 0.2, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 0.7, Health = 1, Damage = 0.2, Speed = 1.1, ScatterRate = 0.3, LifeLength = 0.8, Absorption = 1 } },
+        ] },
+        new() { Id = TankId.AutoTrapper, Name = "Auto Trapper", LevelRequirement = 45, Speed = 1, Sides = 1, PreAddon = null, PostAddon = "autoturret", Upgrades = [], Barrels =
+        [
+            new() { Angle = 0, Offset = 0, Size = 60, Width = 42, Delay = 0, Reload = 1.5, Recoil = 1, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = "trapLauncher", DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Trap, SizeRatio = 0.8, Health = 2, Damage = 1, Speed = 2, ScatterRate = 1, LifeLength = 8, Absorption = 1 } },
+        ] },
+        new() { Id = TankId.Battleship, Name = "Battleship", LevelRequirement = 45, Speed = 1, Sides = 1, PreAddon = null, PostAddon = null, Upgrades = [], Barrels =
+        [
+            new() { Angle = 1.5707963267949, Offset = -20, Size = 75, Width = 29.4, Delay = 0, Reload = 1, Recoil = 1, IsTrapezoid = true, TrapezoidDirection = 3.14159265358979, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Swarm, SizeRatio = 0.7, Health = 1, Damage = 0.15, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = 4.71238898038469, Offset = -20, Size = 75, Width = 29.4, Delay = 0, Reload = 1, Recoil = 1, IsTrapezoid = true, TrapezoidDirection = 3.14159265358979, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Swarm, SizeRatio = 0.7, Health = 1, Damage = 0.15, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = 1.5707963267949, Offset = 20, Size = 75, Width = 29.4, Delay = 0, Reload = 1, Recoil = 1, IsTrapezoid = true, TrapezoidDirection = 3.14159265358979, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = true, ForceFire = false, Bullet = new() { Type = ProjectileKind.Swarm, SizeRatio = 0.7, Health = 1, Damage = 0.15, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+            new() { Angle = 4.71238898038469, Offset = 20, Size = 75, Width = 29.4, Delay = 0, Reload = 1, Recoil = 1, IsTrapezoid = true, TrapezoidDirection = 3.14159265358979, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = true, ForceFire = false, Bullet = new() { Type = ProjectileKind.Swarm, SizeRatio = 0.7, Health = 1, Damage = 0.15, Speed = 1, ScatterRate = 1, LifeLength = 1, Absorption = 1 } },
+        ] },
+        new() { Id = TankId.Annihilator, Name = "Annihilator", LevelRequirement = 45, Speed = 1, Sides = 1, PreAddon = null, PostAddon = null, Upgrades = [], Barrels =
+        [
+            new() { Angle = 0, Offset = 0, Size = 95, Width = 96.6, Delay = 0, Reload = 4, Recoil = 17, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 2, Damage = 3, Speed = 0.7, ScatterRate = 1, LifeLength = 1, Absorption = 0.05 } },
+        ] },
+        new() { Id = TankId.AutoSmasher, Name = "Auto Smasher", LevelRequirement = 45, Speed = 1, Sides = 1, PreAddon = null, PostAddon = "autosmasher", Upgrades = [], Barrels =
+        [
+        ] },
+        new() { Id = TankId.Spike, Name = "Spike", LevelRequirement = 45, Speed = 1, Sides = 1, PreAddon = null, PostAddon = "spike", Upgrades = [], Barrels =
+        [
+        ] },
+        new() { Id = TankId.Factory, Name = "Factory", LevelRequirement = 45, Speed = 1, Sides = 4, PreAddon = null, PostAddon = null, Upgrades = [], Barrels =
+        [
+            new() { Angle = 0, Offset = 0, Size = 70, Width = 42, Delay = 0, Reload = 3, Recoil = 1, IsTrapezoid = true, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 6, CanControlDrones = true, ForceFire = false, Bullet = new() { Type = ProjectileKind.Minion, SizeRatio = 1, Health = 4, Damage = 0.7, Speed = 0.56, ScatterRate = 1, LifeLength = -1, Absorption = 1 } },
+        ] },
+        new() { Id = TankId.Skimmer, Name = "Skimmer", LevelRequirement = 45, Speed = 1, Sides = 1, PreAddon = "launcher", PostAddon = null, Upgrades = [], Barrels =
+        [
+            new() { Angle = 0, Offset = 0, Size = 80, Width = 71.4, Delay = 0, Reload = 4, Recoil = 3, IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Skimmer, SizeRatio = 1, Health = 3, Damage = 1, Speed = 0.5, ScatterRate = 1, LifeLength = 1.3, Absorption = 0.1 } },
+        ] },
+        new() { Id = TankId.Rocketeer, Name = "Rocketeer", LevelRequirement = 45, Speed = 1, Sides = 1, PreAddon = "launcher", PostAddon = null, Upgrades = [], Barrels =
+        [
+            new() { Angle = 0, Offset = 0, Size = 80, Width = 52.5, Delay = 0, Reload = 4, Recoil = 3, IsTrapezoid = true, TrapezoidDirection = 3.14159265358979, Distance = 0, Addon = null, DroneCount = 0, CanControlDrones = false, ForceFire = false, Bullet = new() { Type = ProjectileKind.Rocket, SizeRatio = 1, Health = 5, Damage = 1, Speed = 0.3, ScatterRate = 1, LifeLength = 1, Absorption = 0.1 } },
+        ] },
+    ];
+
+    private static readonly Dictionary<TankId, TankDef> Map = All.ToDictionary(t => t.Id);
+
+    public static bool TryGet(TankId id, out TankDef def) => Map.TryGetValue(id, out def!);
+
+    public static TankDef Get(TankId id) => Map.TryGetValue(id, out var def) ? def : Map[TankId.Basic];
+}
+

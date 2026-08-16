@@ -1,0 +1,16 @@
+bin/
+obj/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+[Dd]ebug/
+[Rr]elease/
+*.exe
+*.pdb
+*.dll
+*.cache
+*.log
+AppSettings.Local.json
+*.DotSettings.user
