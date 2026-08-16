@@ -262,18 +262,26 @@ internal sealed class TrayIconService : IDisposable
 
     private static Drawing.Icon CreateIcon()
     {
+        var path = System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "app.ico");
+        if (System.IO.File.Exists(path))
+            return new Drawing.Icon(path, 32, 32);
+
+        // Fallback if assets were not generated: simple white Win11 panes.
         var bmp = new Drawing.Bitmap(32, 32);
         using (var g = Drawing.Graphics.FromImage(bmp))
         {
             g.SmoothingMode = Drawing.Drawing2D.SmoothingMode.AntiAlias;
             g.Clear(Drawing.Color.Transparent);
-            using var fill = new Drawing.SolidBrush(Drawing.Color.FromArgb(0, 178, 225));
-            using var stroke = new Drawing.Pen(Drawing.Color.FromArgb(0, 120, 150), 2);
-            g.FillRectangle(fill, 16, 12, 12, 8);
-            g.DrawRectangle(stroke, 16, 12, 12, 8);
-            g.FillEllipse(fill, 4, 4, 20, 20);
-            g.DrawEllipse(stroke, 4, 4, 20, 20);
+            using var white = new Drawing.SolidBrush(Drawing.Color.White);
+            g.FillRectangle(white, 3, 3, 12, 12);
+            g.FillRectangle(white, 17, 3, 12, 12);
+            g.FillRectangle(white, 3, 17, 12, 12);
+            g.FillRectangle(white, 17, 17, 12, 12);
         }
-        return Drawing.Icon.FromHandle(bmp.GetHicon());
+        var handle = bmp.GetHicon();
+        using var tmp = Drawing.Icon.FromHandle(handle);
+        var icon = (Drawing.Icon)tmp.Clone();
+        bmp.Dispose();
+        return icon;
     }
 }

@@ -9,10 +9,23 @@
     <RootNamespace>DesktopDiep</RootNamespace>
     <AssemblyName>DesktopDiep</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
     <NoWarn>$(NoWarn);WFO0003</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <Using Remove="System.Drawing" />
     <Using Remove="System.Windows.Forms" />
+    <Compile Remove="tools\**" />
+    <None Include="tools\**" Exclude="tools\**\bin\**;tools\**\obj\**" />
+    <Content Include="Assets\app.ico" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets\app.png" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+  <Target Name="GenerateAppIcon"
+          BeforeTargets="BeforeBuild"
+          Condition="'$(MSBuildProjectName)' == 'DesktopDiep'"
+          Inputs="$(MSBuildProjectDirectory)\tools\IconGen\AppIcon.cs;$(MSBuildProjectDirectory)\tools\IconGen\Program.cs"
+          Outputs="$(MSBuildProjectDirectory)\Assets\app.ico;$(MSBuildProjectDirectory)\Assets\app.png">
+    <MakeDir Directories="$(MSBuildProjectDirectory)\Assets" />
+    <Exec Command="dotnet run --project &quot;$(MSBuildProjectDirectory)\tools\IconGen\IconGen.csproj&quot; -c Release -- &quot;$(MSBuildProjectDirectory)&quot;" />
+  </Target>
 </Project>
