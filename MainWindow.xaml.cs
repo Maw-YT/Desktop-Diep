@@ -52,6 +52,7 @@ public partial class MainWindow : Window
         _tray.ToggleHash += () => Dispatcher.Invoke(Canvas.ToggleHash);
         _tray.ToggleWindowCollisions += () => Dispatcher.Invoke(Canvas.ToggleWindowCollisions);
         _tray.ToggleCursorCollisions += () => Dispatcher.Invoke(Canvas.ToggleCursorCollisions);
+        _tray.SetRenderStyle += style => Dispatcher.Invoke(() => Canvas.SetRenderStyle(style));
         _tray.Reset += () => Dispatcher.Invoke(Canvas.ResetWorld);
         _tray.Spawn += () => Dispatcher.Invoke(Canvas.SpawnTank);
         _tray.SpawnShape += kind => Dispatcher.Invoke(() => Canvas.SpawnShape(kind));

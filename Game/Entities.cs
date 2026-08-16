@@ -137,6 +137,8 @@ public sealed class TankEntity
     public bool ManualStats;
     public PetBrain Brain { get; } = new();
     public TankId ClassId = TankId.Basic;
+    /// <summary>Remaining class upgrades chosen at spawn; applied when level allows.</summary>
+    public readonly List<TankId> ClassPlan = [];
     public BarrelState[] Barrels = [];
     public GuardAddon[] Guards = [];
     public AutoTurretState[] Turrets = [];

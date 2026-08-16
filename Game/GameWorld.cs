@@ -19,6 +19,7 @@ public sealed class GameWorld
     public bool ShowHash;
     public bool CollideWindows = true;
     public bool CollideCursor = true;
+    public RenderStyle RenderStyle = RenderStyle.New;
     public bool ArenaClosing;
     public bool ExitRequested;
     public nint OverlayHwnd;
@@ -92,6 +93,7 @@ public sealed class GameWorld
         tank.X = x ?? (80 + _rng.NextDouble() * Math.Max(80, Width - 160));
         tank.Y = y ?? (80 + _rng.NextDouble() * Math.Max(80, Height - 160));
         TankClasses.Set(tank, TankId.Basic);
+        TankClasses.PlanUpgrades(tank, _rng);
         TankStats.Recalc(tank);
         tank.Health = tank.MaxHealth;
         tank.Snap();
@@ -329,6 +331,7 @@ public sealed class GameWorld
         if (Selected is null || Selected.IsBoss || Selected.IsArenaCloser)
             return;
         TankClasses.Set(Selected, id);
+        TankClasses.PlanUpgrades(Selected, _rng);
         TankStats.Recalc(Selected);
         Debug.Flash(Selected.Class.Name);
     }

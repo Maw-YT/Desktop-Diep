@@ -6,11 +6,13 @@ namespace DesktopDiep;
 internal sealed class WorldRenderer
 {
     private readonly DrawCache _draw;
+    private RenderStyle _style = RenderStyle.New;
 
     public WorldRenderer(DrawCache draw) => _draw = draw;
 
     public void Draw(DrawingContext dc, GameWorld world)
     {
+        _style = RenderLooks.Normalize(world.RenderStyle);
         var t = world.DrawAlpha;
         var bars = world.Alpha;
         foreach (var s in world.Shapes)
@@ -30,38 +32,20 @@ internal sealed class WorldRenderer
         var y = tank.DrawY(t);
         var dying = tank.Destroy.Active;
         PushDeath(dc, tank.Destroy, x, y, t);
+        if (_style == RenderStyle.Shaded)
+            RenderLooks.SoftShadow(dc, tank.Radius);
+
         var flash = tank.Flash.Draw(t);
         var color = DiepColors.Hit(tank.Fill, flash);
-        var fill = _draw.Brush(color);
-        var stroke = _draw.Pen(DiepColors.Stroke(color), 3.2);
-        var barrelFill = _draw.Brush(DiepColors.Barrel);
-        var barrelStroke = _draw.Pen(DiepColors.Stroke(DiepColors.Barrel), 3.2);
-        var borderFill = _draw.Brush(DiepColors.Border);
-        var borderStroke = _draw.Pen(DiepColors.Stroke(DiepColors.Border), 3.2);
         var deg = tank.DrawAngle(t) * 180 / Math.PI;
+        var fill = BodyFill(color, deg);
+        var stroke = BodyStroke(color);
+        var barrelStroke = BodyStroke(DiepColors.Barrel);
+        var borderStroke = BodyStroke(DiepColors.Border);
         var scale = TankStats.GunScale(tank);
 
-        foreach (var guard in tank.Guards)
-        {
-            dc.PushTransform(new RotateTransform(guard.DrawAngle(t) * 180 / Math.PI));
-            dc.DrawGeometry(borderFill, borderStroke, DrawCache.RegularPolygon(guard.Sides, tank.Radius * guard.SizeRatio));
-            dc.Pop();
-        }
+        DrawTankCore(dc, tank, t, scale, deg, fill, stroke, barrelStroke, borderStroke);
 
-        // Auto 3 / Auto 5 sit under the body like diep.io.
-        if (!tank.IsBoss)
-            DrawTurrets(dc, tank, t, scale, barrelFill, barrelStroke, orbitOnly: true);
-
-        dc.PushTransform(new RotateTransform(deg));
-        DrawPrePost(dc, tank.Class.PreAddon, tank, scale, barrelFill, barrelStroke);
-        foreach (var barrel in tank.Barrels)
-            DrawBarrel(dc, barrel, scale, t, barrelFill, barrelStroke, TankStats.BarrelDistance(tank, barrel.Def));
-        DrawPrePost(dc, tank.Class.PostAddon, tank, scale, barrelFill, barrelStroke);
-        DrawBody(dc, tank, fill, stroke);
-        dc.Pop();
-
-        // Center auto-turrets + boss mounts draw on top.
-        DrawTurrets(dc, tank, t, scale, barrelFill, barrelStroke, orbitOnly: tank.IsBoss ? null : false);
         if (selected && !dying)
             dc.DrawEllipse(null, _draw.Pen(Colors.White, 1.6), new Point(0, 0), tank.Radius + 6, tank.Radius + 6);
         PopDeath(dc);
@@ -84,6 +68,40 @@ internal sealed class WorldRenderer
         {
             DrawNametag(dc, "Arena Closer", nameSize, Colors.White, x, y - tank.Radius - nameSize * 1.35);
         }
+    }
+
+    private void DrawTankCore(
+        DrawingContext dc, TankEntity tank, double t, double scale, double deg,
+        Brush fill, Pen stroke, Pen barrelStroke, Pen borderStroke)
+    {
+        foreach (var guard in tank.Guards)
+        {
+            var gDeg = guard.DrawAngle(t) * 180 / Math.PI;
+            var geo = DrawCache.RegularPolygon(guard.Sides, tank.Radius * guard.SizeRatio);
+            dc.PushTransform(new RotateTransform(gDeg));
+            if (_style == RenderStyle.Shaded)
+            {
+                RenderLooks.SoftPartShadow(dc, gDeg, tank.Radius * guard.SizeRatio,
+                    brush => dc.DrawGeometry(brush, null, geo));
+            }
+            dc.DrawGeometry(BodyFill(DiepColors.Border, gDeg), borderStroke, geo);
+            dc.Pop();
+        }
+
+        // Auto 3 / Auto 5 sit under the body like diep.io.
+        if (!tank.IsBoss)
+            DrawTurrets(dc, tank, t, scale, barrelStroke, orbitOnly: true);
+
+        dc.PushTransform(new RotateTransform(deg));
+        DrawPrePost(dc, tank.Class.PreAddon, tank, scale, deg, barrelStroke);
+        foreach (var barrel in tank.Barrels)
+            DrawBarrel(dc, barrel, scale, t, deg, barrelStroke, TankStats.BarrelDistance(tank, barrel.Def));
+        DrawPrePost(dc, tank.Class.PostAddon, tank, scale, deg, barrelStroke);
+        DrawBody(dc, tank, fill, stroke);
+        dc.Pop();
+
+        // Center auto-turrets + boss mounts draw on top.
+        DrawTurrets(dc, tank, t, scale, barrelStroke, orbitOnly: tank.IsBoss ? null : false);
     }
 
     private void DrawNametag(DrawingContext dc, string text, double size, Color fill, double centerX, double y)
@@ -116,19 +134,49 @@ internal sealed class WorldRenderer
         }
     }
 
-    private void DrawBarrel(DrawingContext dc, BarrelState barrel, double scale, double t, Brush fill, Pen stroke, double? distance = null)
+    private void DrawBarrel(DrawingContext dc, BarrelState barrel, double scale, double t, double parentDeg, Pen stroke, double? distance = null)
     {
         var def = barrel.Def;
+        var color = def.Addon == "purplebarrel" ? DiepColors.TeamPurple : DiepColors.Barrel;
         if (def.Addon == "purplebarrel")
-        {
-            fill = _draw.Brush(DiepColors.TeamPurple);
-            stroke = _draw.Pen(DiepColors.Stroke(DiepColors.TeamPurple), 3.2);
-        }
+            stroke = BodyStroke(DiepColors.TeamPurple);
+
         var length = Math.Max(0.5, barrel.DrawLength(t, scale));
         var width = Math.Max(0.5, def.Width * scale);
         var dist = (distance ?? def.Distance) * scale;
+        var localDeg = parentDeg + def.Angle * 180 / Math.PI;
+        var fill = BodyFill(color, localDeg);
+
         dc.PushTransform(new RotateTransform(def.Angle * 180 / Math.PI));
         dc.PushTransform(new TranslateTransform(dist, def.Offset * scale));
+
+        if (_style == RenderStyle.Shaded)
+        {
+            RenderLooks.SoftPartShadow(dc, localDeg, width * 0.65, brush =>
+                DrawBarrelShape(dc, brush, null, def, length, width));
+        }
+
+        DrawBarrelShape(dc, fill, stroke, def, length, width);
+
+        if (def.Addon == "trapLauncher")
+        {
+            var launch = width * (20.0 / 42);
+            dc.PushTransform(new TranslateTransform(length, 0));
+            if (_style == RenderStyle.Shaded)
+            {
+                RenderLooks.SoftPartShadow(dc, localDeg, width * 0.5, brush =>
+                    DrawTrapezoid(dc, brush, null, launch, width, width * 1.35));
+            }
+            DrawTrapezoid(dc, fill, stroke, launch, width, width * 1.35);
+            dc.Pop();
+        }
+
+        dc.Pop();
+        dc.Pop();
+    }
+
+    private void DrawBarrelShape(DrawingContext dc, Brush fill, Pen? stroke, BarrelDef def, double length, double width)
+    {
         if (def.IsTrapezoid)
         {
             var invert = Math.Abs(Math2.NormalizeAngle(def.TrapezoidDirection)) > Math.PI / 2;
@@ -136,22 +184,17 @@ internal sealed class WorldRenderer
             var far = invert ? width : width * 1.45;
             DrawTrapezoid(dc, fill, stroke, length, near, far);
         }
+        else if (_style == RenderStyle.Old)
+        {
+            dc.DrawRectangle(fill, stroke, new Rect(0, -width / 2, length, width));
+        }
         else
         {
             dc.DrawRoundedRectangle(fill, stroke, new Rect(0, -width / 2, length, width), 2.2, 2.2);
         }
-        if (def.Addon == "trapLauncher")
-        {
-            var launch = width * (20.0 / 42);
-            dc.PushTransform(new TranslateTransform(length, 0));
-            DrawTrapezoid(dc, fill, stroke, launch, width, width * 1.35);
-            dc.Pop();
-        }
-        dc.Pop();
-        dc.Pop();
     }
 
-    private static void DrawTrapezoid(DrawingContext dc, Brush fill, Pen stroke, double length, double nearW, double farW)
+    private static void DrawTrapezoid(DrawingContext dc, Brush fill, Pen? stroke, double length, double nearW, double farW)
     {
         if (length <= 0 || nearW <= 0 || farW <= 0)
             return;
@@ -166,7 +209,7 @@ internal sealed class WorldRenderer
         dc.DrawGeometry(fill, stroke, g);
     }
 
-    private static void DrawPrePost(DrawingContext dc, string? addon, TankEntity tank, double scale, Brush barrelFill, Pen barrelStroke)
+    private void DrawPrePost(DrawingContext dc, string? addon, TankEntity tank, double scale, double parentDeg, Pen barrelStroke)
     {
         switch (addon)
         {
@@ -176,7 +219,7 @@ internal sealed class WorldRenderer
                 var width = 42 * scale;
                 var offset = 40 * scale;
                 dc.PushTransform(new TranslateTransform(offset - size / 2, 0));
-                DrawTrapezoid(dc, barrelFill, barrelStroke, size, width * 1.35, width);
+                DrawAddonTrap(dc, size, width * 1.35, width, parentDeg, barrelStroke);
                 dc.Pop();
                 break;
             }
@@ -185,7 +228,7 @@ internal sealed class WorldRenderer
                 var size = 22 * scale;
                 var width = 35 * scale;
                 dc.PushTransform(new TranslateTransform(tank.Radius - size / 2, 0));
-                DrawTrapezoid(dc, barrelFill, barrelStroke, size, width * 1.35, width);
+                DrawAddonTrap(dc, size, width * 1.35, width, parentDeg, barrelStroke);
                 dc.Pop();
                 break;
             }
@@ -193,17 +236,28 @@ internal sealed class WorldRenderer
             {
                 var size = 65.5 * Math.Sqrt(2) * scale;
                 var width = 33.6 * scale;
-                DrawTrapezoid(dc, barrelFill, barrelStroke, size, width * 1.45, width);
+                DrawAddonTrap(dc, size, width * 1.45, width, parentDeg, barrelStroke);
                 break;
             }
         }
+    }
+
+    private void DrawAddonTrap(DrawingContext dc, double length, double nearW, double farW, double parentDeg, Pen stroke)
+    {
+        var fill = BodyFill(DiepColors.Barrel, parentDeg);
+        if (_style == RenderStyle.Shaded)
+        {
+            RenderLooks.SoftPartShadow(dc, parentDeg, Math.Max(nearW, farW) * 0.55, brush =>
+                DrawTrapezoid(dc, brush, null, length, nearW, farW));
+        }
+        DrawTrapezoid(dc, fill, stroke, length, nearW, farW);
     }
 
     /// <param name="orbitOnly">
     /// true = only orbiting mounts (Auto 3/5), false = only centered mounts,
     /// null = all (bosses).
     /// </param>
-    private void DrawTurrets(DrawingContext dc, TankEntity tank, double t, double scale, Brush barrelFill, Pen barrelStroke, bool? orbitOnly)
+    private void DrawTurrets(DrawingContext dc, TankEntity tank, double t, double scale, Pen barrelStroke, bool? orbitOnly)
     {
         var body = tank.DrawAngle(t);
         var rot = tank.IsBoss ? 0 : tank.DrawRotator(t);
@@ -217,11 +271,17 @@ internal sealed class WorldRenderer
 
             var a = tank.IsBoss ? body + turret.MountAngle : turret.MountAngle + rot;
             var r = tank.Radius * turret.Orbit;
+            var tDeg = turret.DrawAngle(t) * 180 / Math.PI;
             dc.PushTransform(new TranslateTransform(Math.Cos(a) * r, Math.Sin(a) * r));
-            dc.PushTransform(new RotateTransform(turret.DrawAngle(t) * 180 / Math.PI));
-            DrawBarrel(dc, turret.Barrel, turretScale, t, barrelFill, barrelStroke);
+            dc.PushTransform(new RotateTransform(tDeg));
+            DrawBarrel(dc, turret.Barrel, turretScale, t, tDeg, barrelStroke);
             var baseR = 25 * turretScale;
-            dc.DrawEllipse(barrelFill, barrelStroke, new Point(0, 0), baseR, baseR);
+            if (_style == RenderStyle.Shaded)
+            {
+                RenderLooks.SoftPartShadow(dc, tDeg, baseR, brush =>
+                    dc.DrawEllipse(brush, null, new Point(0, 0), baseR, baseR));
+            }
+            dc.DrawEllipse(BodyFill(DiepColors.Barrel, tDeg), barrelStroke, new Point(0, 0), baseR, baseR);
             dc.Pop();
             dc.Pop();
         }
@@ -235,14 +295,25 @@ internal sealed class WorldRenderer
         var opacity = b.DrawOpacity(t);
         if (opacity < 0.999)
             dc.PushOpacity(opacity);
-        var fill = _draw.Brush(b.Fill);
-        var stroke = _draw.Pen(DiepColors.Stroke(b.Fill), 2.2);
-        var barrelFill = _draw.Brush(DiepColors.Barrel);
-        var barrelStroke = _draw.Pen(DiepColors.Stroke(DiepColors.Barrel), 2.2);
+        if (_style == RenderStyle.Shaded)
+            RenderLooks.SoftShadow(dc, b.Radius);
+
+        var deg = b.DrawAngle(t) * 180 / Math.PI;
+        var barrelStroke = BodyStroke(DiepColors.Barrel, bullet: true);
+        DrawBulletCore(dc, b, t, deg,
+            BodyFill(b.Fill, deg), BodyStroke(b.Fill, bullet: true), barrelStroke);
+
+        if (opacity < 0.999)
+            dc.Pop();
+        PopDeath(dc);
+    }
+
+    private void DrawBulletCore(DrawingContext dc, BulletEntity b, double t, double deg, Brush fill, Pen stroke, Pen barrelStroke)
+    {
         var scale = b.Radius / 50.0;
-        dc.PushTransform(new RotateTransform(b.DrawAngle(t) * 180 / Math.PI));
+        dc.PushTransform(new RotateTransform(deg));
         foreach (var gun in b.Guns)
-            DrawBarrel(dc, gun, scale, t, barrelFill, barrelStroke);
+            DrawBarrel(dc, gun, scale, t, deg, barrelStroke);
         if (b.IsStar)
             dc.DrawGeometry(fill, stroke, DrawCache.Star(3, b.Radius));
         else if (b.Sides <= 1)
@@ -253,25 +324,31 @@ internal sealed class WorldRenderer
         else
             dc.DrawGeometry(fill, stroke, DrawCache.RegularPolygon(b.Sides, b.Radius));
         dc.Pop();
-        if (opacity < 0.999)
-            dc.Pop();
-        PopDeath(dc);
     }
 
     private void DrawShape(DrawingContext dc, ShapeEntity s, double t, double bars)
     {
         var x = s.DrawX(t);
         var y = s.DrawY(t);
-        var fill = DiepColors.Hit(s.Fill, s.Flash.Draw(t));
+        var fillColor = DiepColors.Hit(s.Fill, s.Flash.Draw(t));
         var geo = DrawCache.Polygon(s.Kind, s.Radius);
+        var deg = s.DrawAngle(t) * 180 / Math.PI;
         PushDeath(dc, s.Destroy, x, y, t);
-        dc.PushTransform(new RotateTransform(s.DrawAngle(t) * 180 / Math.PI));
-        dc.DrawGeometry(_draw.Brush(fill), _draw.Pen(DiepColors.Stroke(fill), 3), geo);
+        if (_style == RenderStyle.Shaded)
+            RenderLooks.SoftShadow(dc, s.Radius);
+        dc.PushTransform(new RotateTransform(deg));
+        dc.DrawGeometry(BodyFill(fillColor, deg), BodyStroke(fillColor), geo);
         dc.Pop();
         PopDeath(dc);
         if (!s.Destroy.Active && s.Health < s.MaxHealth - 0.2)
             DrawBar(dc, x, y + s.Radius + 8, BarWidth(s.Radius), 5.5, s.DrawHealthRatio(bars), DiepColors.Health);
     }
+
+    private Brush BodyFill(Color color, double localRotationDeg = 0) =>
+        RenderLooks.Fill(_draw, color, _style, localRotationDeg);
+
+    private Pen BodyStroke(Color fill, bool bullet = false) =>
+        _draw.Pen(RenderLooks.Outline(fill, _style), RenderLooks.StrokeWidth(_style, bullet));
 
     private static double BarWidth(double radius) => Math.Clamp(radius * 2.2, 36, 120);
 

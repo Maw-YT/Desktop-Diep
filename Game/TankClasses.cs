@@ -21,23 +21,40 @@ internal static class TankClasses
         }
     }
 
-    public static bool TryUpgrade(TankEntity tank, Random rng)
+    /// <summary>
+    /// Instantly rolls the full future upgrade path (ignoring level gates),
+    /// so branches like Smasher can be chosen instead of being locked out at 15.
+    /// </summary>
+    public static void PlanUpgrades(TankEntity tank, Random rng)
     {
-        var changed = false;
+        tank.ClassPlan.Clear();
+        var current = tank.ClassId;
         while (true)
         {
-            var options = new List<TankId>();
-            foreach (var id in tank.Class.Upgrades)
-            {
-                if (!TankCatalog.TryGet(id, out var next))
-                    continue;
-                if (tank.Level < next.LevelRequirement)
-                    continue;
-                options.Add(id);
-            }
-            if (options.Count == 0)
+            if (!TankCatalog.TryGet(current, out var def) || def.Upgrades.Length == 0)
                 break;
-            Set(tank, options[rng.Next(options.Count)]);
+            var next = def.Upgrades[rng.Next(def.Upgrades.Length)];
+            tank.ClassPlan.Add(next);
+            current = next;
+        }
+    }
+
+    public static bool TryUpgrade(TankEntity tank, Random rng)
+    {
+        _ = rng;
+        var changed = false;
+        while (tank.ClassPlan.Count > 0)
+        {
+            var next = tank.ClassPlan[0];
+            if (!TankCatalog.TryGet(next, out var def))
+            {
+                tank.ClassPlan.RemoveAt(0);
+                continue;
+            }
+            if (tank.Level < def.LevelRequirement)
+                break;
+            tank.ClassPlan.RemoveAt(0);
+            Set(tank, next);
             changed = true;
         }
         return changed;

@@ -104,6 +104,15 @@ public sealed class GameCanvas : FrameworkElement
         PersistSettings();
     }
 
+    public void SetRenderStyle(RenderStyle style)
+    {
+        style = RenderLooks.Normalize(style);
+        _world.RenderStyle = style;
+        _world.Debug.Flash($"Render: {RenderLooks.Label(style)}", 1.4);
+        PersistSettings();
+        InvalidateVisual();
+    }
+
     private static void PersistSettings(GameWorld world) => AppSettings.SaveFrom(world);
 
     private void PersistSettings() => PersistSettings(_world);

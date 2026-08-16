@@ -19,6 +19,7 @@ internal sealed class AppSettings
     public bool CollideWindows { get; set; } = true;
     public bool CollideCursor { get; set; } = true;
     public bool DebugOverlay { get; set; }
+    public RenderStyle RenderStyle { get; set; } = RenderStyle.New;
 
     public static AppSettings Load()
     {
@@ -44,6 +45,7 @@ internal sealed class AppSettings
         world.CollideWindows = CollideWindows;
         world.CollideCursor = CollideCursor;
         world.Debug.Enabled = DebugOverlay;
+        world.RenderStyle = RenderLooks.Normalize(RenderStyle);
     }
 
     public void Capture(GameWorld world)
@@ -55,6 +57,7 @@ internal sealed class AppSettings
         CollideWindows = world.CollideWindows;
         CollideCursor = world.CollideCursor;
         DebugOverlay = world.Debug.Enabled;
+        RenderStyle = RenderLooks.Normalize(world.RenderStyle);
     }
 
     public void Save()

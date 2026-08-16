@@ -15,6 +15,7 @@ internal sealed class TrayIconService : IDisposable
     private readonly WinForms.ToolStripMenuItem _hashItem;
     private readonly WinForms.ToolStripMenuItem _windowsItem;
     private readonly WinForms.ToolStripMenuItem _cursorItem;
+    private readonly WinForms.ToolStripMenuItem _renderItem;
     private readonly WinForms.ToolStripMenuItem _tanksItem;
     private readonly WinForms.ToolStripMenuItem _shapesItem;
     private readonly WinForms.ToolStripMenuItem _bossesItem;
@@ -41,6 +42,7 @@ internal sealed class TrayIconService : IDisposable
     public event Action<TankId>? SetClass;
     public event Action<ShapeKind?>? SpawnShape;
     public event Action<TankId?>? SpawnBoss;
+    public event Action<RenderStyle>? SetRenderStyle;
 
     public TrayIconService()
     {
@@ -52,6 +54,14 @@ internal sealed class TrayIconService : IDisposable
         _hashItem = new WinForms.ToolStripMenuItem("Spatial hash debug") { CheckOnClick = true };
         _windowsItem = new WinForms.ToolStripMenuItem("Window collisions") { CheckOnClick = true, Checked = true };
         _cursorItem = new WinForms.ToolStripMenuItem("Cursor collisions") { CheckOnClick = true, Checked = true };
+        _renderItem = new WinForms.ToolStripMenuItem("Render");
+        foreach (RenderStyle style in Enum.GetValues<RenderStyle>())
+        {
+            var s = style;
+            var item = new WinForms.ToolStripMenuItem(RenderLooks.Label(s));
+            item.Click += (_, _) => { if (!_rebuilding) SetRenderStyle?.Invoke(s); };
+            _renderItem.DropDownItems.Add(item);
+        }
         _tanksItem = new WinForms.ToolStripMenuItem("Tanks");
         _shapesItem = new WinForms.ToolStripMenuItem("Spawn shape");
         _bossesItem = new WinForms.ToolStripMenuItem("Spawn boss");
@@ -85,6 +95,7 @@ internal sealed class TrayIconService : IDisposable
         _menu.Items.Add(_bossesItem);
         _menu.Items.Add(_classItem);
         _menu.Items.Add(_statsItem);
+        _menu.Items.Add(_renderItem);
         _menu.Items.Add(new WinForms.ToolStripSeparator());
         _menu.Items.Add(_debugItem);
         _menu.Items.Add(_pauseItem);
@@ -144,6 +155,7 @@ internal sealed class TrayIconService : IDisposable
             RebuildTanks(_world);
             RebuildClass(_world);
             RebuildStats(_world);
+            RebuildRender(_world);
         }
         finally
         {
@@ -228,6 +240,16 @@ internal sealed class TrayIconService : IDisposable
                 group.DropDownItems.Add(opt);
             }
             _statsItem.DropDownItems.Add(group);
+        }
+    }
+
+    private void RebuildRender(GameWorld world)
+    {
+        for (var i = 0; i < _renderItem.DropDownItems.Count; i++)
+        {
+            if (_renderItem.DropDownItems[i] is not WinForms.ToolStripMenuItem item)
+                continue;
+            item.Checked = (RenderStyle)i == world.RenderStyle;
         }
     }
 
