@@ -252,8 +252,8 @@ internal static class ModApi
     public static Table BuildCatalog(Script script)
     {
         var t = new Table(script);
-        t["list"] = DynValue.NewCallback((_, _) => StringList(script, TankCatalog.Playable.Select(d => d.Id.ToString())));
-        t["bosses"] = DynValue.NewCallback((_, _) => StringList(script, TankCatalog.BossList.Select(d => d.Id.ToString())));
+        t["list"] = DynValue.NewCallback((_, _) => StringList(script, TankCatalog.Playable.Select(d => TankCatalog.KeyOf(d.Id))));
+        t["bosses"] = DynValue.NewCallback((_, _) => StringList(script, TankCatalog.BossList.Select(d => TankCatalog.KeyOf(d.Id))));
         t["shapes"] = DynValue.NewCallback((_, _) => StringList(script, Enum.GetNames<ShapeKind>()));
         t["projectiles"] = DynValue.NewCallback((_, _) => StringList(script, Enum.GetNames<ProjectileKind>()));
         t["stats"] = DynValue.NewCallback((_, _) =>
@@ -277,7 +277,7 @@ internal static class ModApi
                 return DynValue.Nil;
             if (!TankCatalog.TryParseId(a[0].String, out var id) || !TankCatalog.TryGet(id, out var def))
                 return DynValue.Nil;
-            return StringList(script, def.Upgrades.Select(u => u.ToString()));
+            return StringList(script, def.Upgrades.Select(TankCatalog.KeyOf));
         });
         t["register_tank"] = DynValue.NewCallback((_, a) =>
         {
@@ -896,7 +896,7 @@ internal static class ModApi
     {
         var upgrades = new Table(script);
         for (var i = 0; i < def.Upgrades.Length; i++)
-            upgrades[i + 1] = def.Upgrades[i].ToString();
+            upgrades[i + 1] = TankCatalog.KeyOf(def.Upgrades[i]);
         var barrels = new Table(script);
         for (var i = 0; i < def.Barrels.Length; i++)
         {
@@ -914,7 +914,7 @@ internal static class ModApi
         }
         return new Table(script)
         {
-            ["id"] = def.Id.ToString(),
+            ["id"] = TankCatalog.KeyOf(def.Id),
             ["name"] = def.Name,
             ["level"] = def.LevelRequirement,
             ["sides"] = def.Sides,

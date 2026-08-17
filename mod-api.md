@@ -197,7 +197,7 @@ Returned objects are userdata. Fields without `()` are properties (many are writ
 | --- | --- | --- |
 | `id` | int | Stable until the tank is removed |
 | `kind` | string | Always `"tank"` |
-| `class_id` | string | Catalog id, e.g. `"Twin"` |
+| `class_id` | string | Catalog key (`"Twin"`, or `"random_bomber"` for mod tanks) |
 | `class_name` | string | Display name |
 | `alive` | bool | |
 | `ai` | bool | `false` skips pet AI — drive with `steer` / `aim_at` / `wants_shot` |
@@ -274,9 +274,9 @@ Returned objects are userdata. Fields without `()` are properties (many are writ
 
 ### Bullet
 
-`kind` is always `"bullet"`. `projectile` is the projectile type (writable).
+`kind` is always `"bullet"`. `projectile` is the projectile type (writable). Setting it **retypes** the shot (trap star, drone AI, skimmer/rocket guns, flame, …). `"Wall"` immediately expires the shot.
 
-`x`, `y`, `vx`, `vy`, `angle`, `radius`, `mass`, `damage`, `health`, `life`, `accel`, `spin`, `opacity`, `sides`, `age` (read-only), `visible`, `can_control`, `owner_id`
+`x`, `y`, `vx`, `vy`, `angle`, `radius`, `mass`, `damage`, `health`, `life`, `accel`, `spin`, `opacity`, `sides`, `age` (read-only), `barrel_index` (read-only; tank guns `< 100`, turrets `100..999`, shots-from-shots `1000+`), `visible`, `can_control`, `owner_id`
 
 | Method | |
 | --- | --- |
@@ -374,6 +374,7 @@ Catalog.register_tank({
   pre_addon = "",
   post_addon = "",
   upgrades = { "Twin" },
+  from = { "Basic" },            -- splice this tank into Basic's upgrade list
   barrels = {
     {
       angle = 0, offset = 0, size = 95, width = 42,

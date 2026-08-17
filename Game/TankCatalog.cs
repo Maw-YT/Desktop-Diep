@@ -485,6 +485,8 @@ internal static class TankCatalog
         All.Concat(Bosses).ToDictionary(t => t.Id);
 
     private static readonly Dictionary<string, TankId> ModKeys = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly Dictionary<TankId, string> ModIds = [];
+    private static readonly Dictionary<TankId, TankId[]> StockUpgrades = [];
     private static readonly List<TankDef> ModDefs = [];
     private static int _nextModId = 1000;
 
@@ -494,6 +496,9 @@ internal static class TankCatalog
     public static bool TryGet(TankId id, out TankDef def) => Map.TryGetValue(id, out def!);
 
     public static TankDef Get(TankId id) => Map.TryGetValue(id, out var def) ? def : Map[TankId.Basic];
+
+    public static string KeyOf(TankId id) =>
+        ModIds.TryGetValue(id, out var key) ? key : id.ToString();
 
     public static bool TryParseId(string text, out TankId id)
     {
@@ -514,7 +519,14 @@ internal static class TankCatalog
     {
         foreach (var id in ModKeys.Values.ToList())
             Map.Remove(id);
+        foreach (var (id, ups) in StockUpgrades)
+        {
+            if (Map.TryGetValue(id, out var def))
+                def.Upgrades = ups;
+        }
+        StockUpgrades.Clear();
         ModKeys.Clear();
+        ModIds.Clear();
         ModDefs.Clear();
         _nextModId = 1000;
     }
@@ -523,7 +535,9 @@ internal static class TankCatalog
     {
         if (!ModKeys.TryGetValue(key, out var id))
             return false;
+        DetachChild(id);
         ModKeys.Remove(key);
+        ModIds.Remove(id);
         Map.Remove(id);
         ModDefs.RemoveAll(d => d.Id == id);
         return true;
@@ -574,6 +588,7 @@ internal static class TankCatalog
             Upgrades = ParseUpgrades(table.Get("upgrades")),
             Barrels = ParseBarrels(table.Get("barrels"))
         };
+        AttachParents(id, ParseUpgrades(table.Get("from")));
         if (def.Barrels.Length == 0)
         {
             def.Barrels =
@@ -594,8 +609,32 @@ internal static class TankCatalog
 
         Map[id] = def;
         ModKeys[key] = id;
+        ModIds[id] = key;
         ModDefs.Add(def);
         return true;
+    }
+
+    private static void AttachParents(TankId child, TankId[] parents)
+    {
+        foreach (var parent in parents)
+        {
+            if (!Map.TryGetValue(parent, out var def))
+                continue;
+            StockUpgrades.TryAdd(parent, def.Upgrades);
+            if (def.Upgrades.Contains(child))
+                continue;
+            def.Upgrades = [.. def.Upgrades, child];
+        }
+    }
+
+    private static void DetachChild(TankId child)
+    {
+        foreach (var def in Map.Values)
+        {
+            if (Array.IndexOf(def.Upgrades, child) < 0)
+                continue;
+            def.Upgrades = def.Upgrades.Where(u => u != child).ToArray();
+        }
     }
 
     private static string? NullIfEmpty(string? s) => string.IsNullOrWhiteSpace(s) ? null : s;

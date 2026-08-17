@@ -29,6 +29,48 @@ internal static class Projectile
     public static readonly BarrelDef MinionGun = Gun(0, 85, 50.4, 1, 1, false, 0,
         health: 0.4, damage: 0.4, speed: 0.8, scatter: 1, life: 1);
 
+    /// <summary>Change a live shot to another projectile kind and apply that kind's setup (traps, drones, skimmer guns, …).</summary>
+    public static void Retype(BulletEntity shot, TankEntity? tank, ProjectileKind kind)
+    {
+        if (kind == ProjectileKind.Wall)
+        {
+            shot.Kind = kind;
+            shot.Life = 0;
+            return;
+        }
+
+        shot.Kind = kind;
+        shot.Guns = [];
+        shot.IsStar = false;
+        shot.NoDestroyAnim = false;
+        shot.Sides = 1;
+        shot.Spin = 0;
+        shot.Opacity = 1;
+        shot.Absorption = 1;
+        shot.CanControl = false;
+        if (tank is null)
+            return;
+
+        var def = new BarrelDef
+        {
+            CanControlDrones = true,
+            DroneCount = 8,
+            Bullet = new BulletDef
+            {
+                Type = kind,
+                SizeRatio = 1,
+                Health = 1,
+                Damage = 1,
+                Speed = 1,
+                ScatterRate = 1,
+                LifeLength = 1,
+                Absorption = 1,
+                Sides = 3
+            }
+        };
+        Configure(shot, tank, def, Math.Max(0.2, shot.Radius / 50.0));
+    }
+
     public static void Configure(BulletEntity shot, TankEntity tank, BarrelDef barrel, double scale)
     {
         var type = barrel.Bullet.Type;

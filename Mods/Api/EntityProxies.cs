@@ -39,7 +39,7 @@ internal sealed class TankProxy
     public int skill_points { get => _t.SkillPoints; set => _t.SkillPoints = value; }
     public int xp_into { get => _t.XpIntoLevel; set => _t.XpIntoLevel = Math.Max(0, value); }
     public int xp_for_next => _t.XpForNext;
-    public string class_id => _t.ClassId.ToString();
+    public string class_id => TankCatalog.KeyOf(_t.ClassId);
     public string class_name => _t.Class.Name;
     public bool alive { get => _t.Alive; set => _t.Alive = value; }
     public bool ai { get => _t.AiEnabled; set => _t.AiEnabled = value; }
@@ -322,6 +322,7 @@ internal sealed class BulletProxy
     public double opacity { get => _b.Opacity; set => _b.Opacity = value; }
     public int sides { get => _b.Sides; set => _b.Sides = value; }
     public int age => _b.Age;
+    public int barrel_index => _b.BarrelIndex;
     public bool visible { get => _b.Visible; set => _b.Visible = value; }
     public bool can_control { get => _b.CanControl; set => _b.CanControl = value; }
     public int owner_id { get => _b.OwnerId; set => _b.OwnerId = value; }
@@ -354,8 +355,9 @@ internal sealed class BulletProxy
 
     private void SetKind(string name)
     {
-        if (Enum.TryParse<ProjectileKind>(name, true, out var k))
-            _b.Kind = k;
+        if (!Enum.TryParse<ProjectileKind>(name, true, out var k))
+            return;
+        Projectile.Retype(_b, _w.FindTank(_b.OwnerId), k);
     }
 
     private static byte ToByte(double t) =>
