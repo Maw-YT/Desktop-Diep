@@ -20,11 +20,10 @@
     <Content Include="Assets\app.ico" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Assets\app.png" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
-  <Target Name="GenerateAppIcon"
-          BeforeTargets="BeforeBuild"
-          Condition="'$(MSBuildProjectName)' == 'DesktopDiep'"
-          Inputs="$(MSBuildProjectDirectory)\tools\IconGen\AppIcon.cs;$(MSBuildProjectDirectory)\tools\IconGen\Program.cs"
-          Outputs="$(MSBuildProjectDirectory)\Assets\app.ico;$(MSBuildProjectDirectory)\Assets\app.png">
+  <ItemGroup>
+    <PackageReference Include="MoonSharp" Version="2.0.0" />
+  </ItemGroup>
+  <Target Name="GenerateAppIcon" BeforeTargets="BeforeBuild" Condition="'$(MSBuildProjectName)' == 'DesktopDiep'" Inputs="$(MSBuildProjectDirectory)\tools\IconGen\AppIcon.cs;$(MSBuildProjectDirectory)\tools\IconGen\Program.cs" Outputs="$(MSBuildProjectDirectory)\Assets\app.ico;$(MSBuildProjectDirectory)\Assets\app.png">
     <MakeDir Directories="$(MSBuildProjectDirectory)\Assets" />
     <Exec Command="dotnet run --project &quot;$(MSBuildProjectDirectory)\tools\IconGen\IconGen.csproj&quot; -c Release -- &quot;$(MSBuildProjectDirectory)&quot;" />
   </Target>

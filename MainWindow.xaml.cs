@@ -62,6 +62,8 @@ public partial class MainWindow : Window
         _tray.SelectTank += i => Dispatcher.Invoke(() => Canvas.SelectTank(i));
         _tray.SetStat += (s, v) => Dispatcher.Invoke(() => Canvas.SetStat(s, v));
         _tray.SetClass += id => Dispatcher.Invoke(() => Canvas.SetClass(id));
+        _tray.ReloadMods += () => Dispatcher.Invoke(Canvas.ReloadMods);
+        _tray.SetModEnabled += (id, on) => Dispatcher.Invoke(() => Canvas.SetModEnabled(id, on));
         _tray.Exit += () => Dispatcher.Invoke(Close);
 
         CompositionTarget.Rendering += SyncTray;
@@ -87,6 +89,7 @@ public partial class MainWindow : Window
     {
         CompositionTarget.Rendering -= SyncTray;
         AppSettings.SaveFrom(Canvas.World);
+        Canvas.World.Mods?.Dispose();
         _hotkeys?.Dispose();
         _tray?.Dispose();
     }

@@ -1,3 +1,5 @@
+using System.Windows.Media;
+
 namespace DesktopDiep;
 
 public sealed class GameWorld
@@ -30,6 +32,8 @@ public sealed class GameWorld
     public CursorState Cursor { get; } = new();
     public WindowObstacles Windows { get; } = new();
     internal NavGrid Nav { get; } = new();
+    internal ModHost? Mods { get; set; }
+    internal Random ModRandom => _rng;
 
     private readonly Random _rng = new();
     private readonly ShapeSpawner _spawner;
@@ -68,9 +72,10 @@ public sealed class GameWorld
         Selected = SpawnTank(startX, startY);
         _spawner.Fill(Shapes, Width, Height, 18);
         Debug.Flash("Reset");
+        Mods?.Emit("world_reset");
     }
 
-    public TankEntity? SpawnTank(double? x = null, double? y = null)
+    public TankEntity? SpawnTank(double? x = null, double? y = null, TankId? classId = null)
     {
         if (ArenaClosing)
         {
@@ -92,20 +97,61 @@ public sealed class GameWorld
         tank.XpForNext = TankStats.XpNeeded(1);
         tank.X = x ?? (80 + _rng.NextDouble() * Math.Max(80, Width - 160));
         tank.Y = y ?? (80 + _rng.NextDouble() * Math.Max(80, Height - 160));
-        TankClasses.Set(tank, TankId.Basic);
-        TankClasses.PlanUpgrades(tank, _rng);
+        TankClasses.Set(tank, classId ?? TankId.Basic);
+        if (classId is null)
+            TankClasses.PlanUpgrades(tank, _rng);
+        else
+            tank.ClassPlan.Clear();
         TankStats.Recalc(tank);
         tank.Health = tank.MaxHealth;
         tank.Snap();
         Tanks.Add(tank);
         Selected = tank;
         Debug.Flash($"{tank.Class.Name}");
+        Mods?.EmitTank("tank_spawn", tank);
         return tank;
+    }
+
+    /// <summary>Low-level bullet spawn for Lua mods. Returns null if the bullet cap is hit.</summary>
+    internal BulletEntity? SpawnBulletFromMod(
+        double x, double y, double vx, double vy, double angle,
+        double radius, double damage, double health, double life,
+        int ownerId, ProjectileKind kind, Color fill, bool visible)
+    {
+        if (Bullets.Count > 200)
+            return null;
+        var shot = new BulletEntity
+        {
+            X = x,
+            Y = y,
+            Vx = vx,
+            Vy = vy,
+            Angle = angle,
+            MovementAngle = angle,
+            Radius = Math.Max(1, radius),
+            Damage = damage,
+            Health = Math.Max(0.01, health),
+            Life = life,
+            Mass = 0.22,
+            Absorption = 1,
+            PushFactor = Math.Max(1, damage),
+            Kind = kind,
+            OwnerId = ownerId,
+            Fill = fill,
+            Visible = visible,
+            Accel = 0
+        };
+        shot.Snap();
+        Bullets.Add(shot);
+        Mods?.EmitBullet("bullet_spawn", shot);
+        return shot;
     }
 
     public void CloseArena()
     {
         if (ArenaClosing || ExitRequested)
+            return;
+        if (Mods?.EmitCancel("arena_close") == true)
             return;
         ArenaClosing = true;
         _closersRetreating = false;
@@ -174,7 +220,13 @@ public sealed class GameWorld
             return null;
         }
 
-        var id = kind ?? TankCatalog.Bosses[_rng.Next(TankCatalog.Bosses.Length)].Id;
+        var bosses = TankCatalog.BossList.ToArray();
+        if (bosses.Length == 0)
+        {
+            Debug.Flash("No bosses");
+            return null;
+        }
+        var id = kind ?? bosses[_rng.Next(bosses.Length)].Id;
         if (!TankCatalog.TryGet(id, out var def) || !def.IsBoss)
         {
             Debug.Flash("Unknown boss");
@@ -207,7 +259,14 @@ public sealed class GameWorld
         Notifications.Server($"The {label} has spawned!", 8, "boss_spawn");
         ScheduleBossSpawn();
         Debug.Flash(def.Name);
+        Mods?.EmitTank("boss_spawn", tank);
         return tank;
+    }
+
+    internal double BossSpawnIn
+    {
+        get => _bossSpawnIn;
+        set => _bossSpawnIn = Math.Max(0, value);
     }
 
     private void ScheduleBossSpawn() =>
@@ -220,6 +279,11 @@ public sealed class GameWorld
         _bossSpawnIn -= dt;
         if (_bossSpawnIn > 0)
             return;
+        if (Mods?.EmitCancel("boss_timer") == true)
+        {
+            ScheduleBossSpawn();
+            return;
+        }
         if (SpawnBoss() is null)
             ScheduleBossSpawn();
     }
@@ -300,11 +364,24 @@ public sealed class GameWorld
         Tanks.Add(tank);
     }
 
-    public ShapeEntity SpawnShape(ShapeKind? kind = null)
+    public ShapeEntity SpawnShape(ShapeKind? kind = null, double? x = null, double? y = null, bool notify = true)
     {
         var shape = _spawner.Spawn(Shapes, Width, Height, kind);
+        if (x is double sx)
+        {
+            shape.X = sx;
+            shape.OrbitCx = sx;
+        }
+        if (y is double sy)
+        {
+            shape.Y = sy;
+            shape.OrbitCy = sy;
+        }
+        shape.Snap();
         Shapes.Add(shape);
-        Debug.Flash(kind is null ? "Shape" : kind.Value.ToString());
+        if (notify)
+            Debug.Flash(kind is null ? "Shape" : kind.Value.ToString());
+        Mods?.EmitShape("shape_spawn", shape);
         return shape;
     }
 
@@ -316,6 +393,15 @@ public sealed class GameWorld
             return;
         Selected = Tanks[index];
         Debug.Flash(Selected.Class.Name);
+    }
+
+    public void SelectById(int id)
+    {
+        var tank = FindTank(id);
+        if (tank is null)
+            return;
+        Selected = tank;
+        Debug.Flash(tank.Class.Name);
     }
 
     public void SetSelectedStat(int stat, int value)
@@ -340,17 +426,76 @@ public sealed class GameWorld
     {
         if (Selected is null)
             return;
-        if (!Selected.IsBoss && Tanks.Count(t => !t.IsArenaCloser && !t.IsBoss) <= 1)
-            return;
-        var i = Tanks.IndexOf(Selected);
+        if (TryRemoveTank(Selected))
+            Debug.Flash("Removed");
+    }
+
+    internal bool TryRemoveTank(TankEntity tank, bool protectLastPlayer = true)
+    {
+        if (protectLastPlayer && !tank.IsBoss && !tank.IsArenaCloser &&
+            Tanks.Count(t => !t.IsArenaCloser && !t.IsBoss) <= 1)
+            return false;
+        var i = Tanks.IndexOf(tank);
         if (i < 0)
-            return;
+            return false;
         if (IsGrabbed(PhysKind.Tank, i))
             Cursor.Release();
-        ClearOwnedBullets(Selected.Id);
+        ClearOwnedBullets(tank.Id);
         Tanks.RemoveAt(i);
-        Selected = Tanks.Find(t => !t.IsArenaCloser);
-        Debug.Flash("Removed");
+        if (Selected == tank)
+            Selected = Tanks.Find(t => !t.IsArenaCloser);
+        return true;
+    }
+
+    internal void ResetKeepSize()
+    {
+        var sx = Selected?.X ?? Width * 0.5;
+        var sy = Selected?.Y ?? Height * 0.5;
+        Reset(Math.Max(1, Width), Math.Max(1, Height), sx, sy);
+    }
+
+    internal void ClearShapes()
+    {
+        if (Cursor.GrabKind == PhysKind.Shape)
+            Cursor.Release();
+        Shapes.Clear();
+    }
+
+    internal void ClearBullets()
+    {
+        if (Cursor.GrabKind == PhysKind.Bullet)
+            Cursor.Release();
+        Bullets.Clear();
+    }
+
+    internal object? EntityFromPhys(PhysKind kind, int index) => kind switch
+    {
+        PhysKind.Tank when (uint)index < (uint)Tanks.Count => Tanks[index],
+        PhysKind.Shape when (uint)index < (uint)Shapes.Count => Shapes[index],
+        PhysKind.Bullet when (uint)index < (uint)Bullets.Count => Bullets[index],
+        _ => null
+    };
+
+    internal void ModForceShoot(TankEntity tank)
+    {
+        if (!tank.Alive || tank.Destroy.Active)
+            return;
+        tank.Brain.WantsShot = true;
+        for (var i = 0; i < tank.Barrels.Length; i++)
+        {
+            var barrel = tank.Barrels[i];
+            barrel.Pos = barrel.ReloadTime * (1 + barrel.Def.Delay);
+            TickShootCycle(tank, i, barrel, true, tank.Angle, tank.X, tank.Y, recoil: true);
+        }
+    }
+
+    internal void ModSetLevel(TankEntity tank, int level)
+    {
+        tank.Level = Math.Clamp(level, 1, 45);
+        tank.XpForNext = TankStats.XpNeeded(tank.Level);
+        tank.XpIntoLevel = Math.Min(tank.XpIntoLevel, Math.Max(0, tank.XpForNext - 1));
+        TankStats.Recalc(tank);
+        tank.Health = tank.MaxHealth;
     }
 
     public void Resize(double width, double height)
@@ -408,6 +553,7 @@ public sealed class GameWorld
 
     private void FixedTick(double dt)
     {
+        Mods?.Tick(dt);
         Cursor.BeginTick();
         TickPointer();
         if (CollideWindows)
@@ -472,6 +618,7 @@ public sealed class GameWorld
         TickArenaClose(dt);
         Debug.HashCells = _collisions.CellCount;
         Debug.HashPairs = _collisions.PairCount;
+        Mods?.PostTick(dt);
     }
 
     private void TickArenaClose(double dt)
@@ -594,8 +741,42 @@ public sealed class GameWorld
             return;
         }
 
+        if (!tank.AiEnabled)
+        {
+            TickBarrels(tank);
+            Regen(tank, dt);
+            return;
+        }
+
         tank.Brain.SpendPoints(tank);
         tank.Brain.Think(tank, this, out var ax, out var ay);
+        if (Mods is not null)
+        {
+            var script = Mods.Mods.FirstOrDefault(m => m.Enabled)?.Script;
+            if (script is not null)
+            {
+                var e = new MoonSharp.Interpreter.Table(script)
+                {
+                    ["cancel"] = false,
+                    ["aim_x"] = tank.Brain.AimX,
+                    ["aim_y"] = tank.Brain.AimY,
+                    ["wants_shot"] = tank.Brain.WantsShot,
+                    ["move_x"] = ax,
+                    ["move_y"] = ay
+                };
+                Mods.Events.EmitCancelable(script, "think", e, EntityProxies.Tank(script, tank, this));
+                if (e.Get("aim_x").Type == MoonSharp.Interpreter.DataType.Number)
+                    tank.Brain.AimX = e.Get("aim_x").Number;
+                if (e.Get("aim_y").Type == MoonSharp.Interpreter.DataType.Number)
+                    tank.Brain.AimY = e.Get("aim_y").Number;
+                if (e.Get("wants_shot").Type == MoonSharp.Interpreter.DataType.Boolean)
+                    tank.Brain.WantsShot = e.Get("wants_shot").Boolean;
+                if (e.Get("move_x").Type == MoonSharp.Interpreter.DataType.Number)
+                    ax = e.Get("move_x").Number;
+                if (e.Get("move_y").Type == MoonSharp.Interpreter.DataType.Number)
+                    ay = e.Get("move_y").Number;
+            }
+        }
         DiepPhysics.MaintainVelocity(ref tank.Vx, ref tank.Vy, Math.Atan2(ay, ax),
             (ax == 0 && ay == 0) ? 0 : TankStats.MoveSpeed(tank));
         TickBarrels(tank);
@@ -823,6 +1004,13 @@ public sealed class GameWorld
         var bullet = def.Bullet;
         if (bullet.Type is ProjectileKind.Wall)
             return;
+        if (Mods?.EmitCancel("pre_shoot", e =>
+            {
+                e["barrel"] = index;
+                e["facing"] = facing;
+            }, tank) == true)
+            return;
+
         var scale = from is not null
             ? from.Radius / 50.0
             : index >= 100 && index < 1000
@@ -878,6 +1066,13 @@ public sealed class GameWorld
         }
         shot.Snap();
         Bullets.Add(shot);
+        Mods?.EmitBullet("bullet_spawn", shot);
+        if (Mods is not null)
+        {
+            var script = Mods.Mods.FirstOrDefault(m => m.Enabled)?.Script;
+            if (script is not null)
+                Mods.Emit("post_shoot", EntityProxies.Tank(script, tank, this), EntityProxies.Bullet(script, shot, this));
+        }
 
         barrel.ShotAge = 0;
         var kick = def.Recoil * 2 * scale;
@@ -1178,6 +1373,9 @@ public sealed class GameWorld
     {
         if (!tank.Alive || amount <= 0 || tank.IsArenaCloser)
             return;
+        amount = Mods?.EmitDamage("tank_hurt", amount, tank, killer) ?? amount;
+        if (amount <= 0)
+            return;
         tank.Health -= amount;
         tank.Flash.Hit();
         tank.CombatTimer = 3;
@@ -1199,6 +1397,9 @@ public sealed class GameWorld
             Notifications.Server($"The {name} has been defeated by {killerName}!", 10, "boss_death");
         }
         Debug.Flash(tank.IsBoss ? "Boss died" : "Tank died");
+        Mods?.EmitTank("tank_death", tank);
+        if (killer is not null)
+            Mods?.EmitTank("kill", killer);
     }
 
     private void ClearOwnedBullets(int ownerId)
@@ -1224,6 +1425,7 @@ public sealed class GameWorld
         tank.Vx = 0;
         tank.Vy = 0;
         tank.Snap();
+        Mods?.EmitTank("tank_respawn", tank);
     }
 
     internal void KillShape(ShapeEntity s, TankEntity? killer)
@@ -1236,6 +1438,7 @@ public sealed class GameWorld
             AddScore(killer, s.Xp);
         if (!s.Destroy.Begin())
             s.Health = 0;
+        Mods?.EmitShape("shape_death", s);
     }
 
     private bool TryNecroClaim(TankEntity tank, ShapeEntity shape)
@@ -1286,8 +1489,29 @@ public sealed class GameWorld
         return true;
     }
 
+    internal void ModAddScore(TankEntity tank, int xp) => AddScore(tank, xp);
+
     private void AddScore(TankEntity tank, int xp)
     {
+        if (Mods is not null)
+        {
+            var script = Mods.Mods.FirstOrDefault(m => m.Enabled)?.Script;
+            if (script is not null)
+            {
+                var e = new MoonSharp.Interpreter.Table(script)
+                {
+                    ["cancel"] = false,
+                    ["xp"] = xp
+                };
+                Mods.Events.EmitCancelable(script, "xp_gain", e, EntityProxies.Tank(script, tank, this));
+                if (e.Get("cancel").Type == MoonSharp.Interpreter.DataType.Boolean && e.Get("cancel").Boolean)
+                    return;
+                if (e.Get("xp").Type == MoonSharp.Interpreter.DataType.Number)
+                    xp = (int)e.Get("xp").Number;
+            }
+        }
+        if (xp <= 0)
+            return;
         tank.Score += xp;
         tank.XpIntoLevel += xp;
         while (tank.XpIntoLevel >= tank.XpForNext && tank.Level < 45)
@@ -1298,8 +1522,13 @@ public sealed class GameWorld
             tank.XpForNext = TankStats.XpNeeded(tank.Level);
             TankStats.Recalc(tank);
             tank.Health = tank.MaxHealth;
+            Mods?.EmitTank("level_up", tank);
+            var prevClass = tank.ClassId;
             if (TankClasses.TryUpgrade(tank, _rng))
+            {
                 _pendingClassName = tank.Class.Name;
+                Mods?.EmitTank("class_upgrade", tank);
+            }
             else
                 Debug.Flash($"Level {tank.Level}");
         }

@@ -484,8 +484,204 @@ internal static class TankCatalog
     private static readonly Dictionary<TankId, TankDef> Map =
         All.Concat(Bosses).ToDictionary(t => t.Id);
 
+    private static readonly Dictionary<string, TankId> ModKeys = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly List<TankDef> ModDefs = [];
+    private static int _nextModId = 1000;
+
+    public static IEnumerable<TankDef> Playable => All.Concat(ModDefs.Where(d => !d.IsBoss));
+    public static IEnumerable<TankDef> BossList => Bosses.Concat(ModDefs.Where(d => d.IsBoss));
+
     public static bool TryGet(TankId id, out TankDef def) => Map.TryGetValue(id, out def!);
 
     public static TankDef Get(TankId id) => Map.TryGetValue(id, out var def) ? def : Map[TankId.Basic];
+
+    public static bool TryParseId(string text, out TankId id)
+    {
+        if (Enum.TryParse(text, true, out id) && Map.ContainsKey(id))
+            return true;
+        if (ModKeys.TryGetValue(text, out id))
+            return true;
+        if (int.TryParse(text, out var n) && Map.ContainsKey((TankId)n))
+        {
+            id = (TankId)n;
+            return true;
+        }
+        id = TankId.Basic;
+        return false;
+    }
+
+    public static void ClearModRegistrations()
+    {
+        foreach (var id in ModKeys.Values.ToList())
+            Map.Remove(id);
+        ModKeys.Clear();
+        ModDefs.Clear();
+        _nextModId = 1000;
+    }
+
+    public static bool UnregisterMod(string key)
+    {
+        if (!ModKeys.TryGetValue(key, out var id))
+            return false;
+        ModKeys.Remove(key);
+        Map.Remove(id);
+        ModDefs.RemoveAll(d => d.Id == id);
+        return true;
+    }
+
+    public static bool TryRegisterFromLua(MoonSharp.Interpreter.Table table, out string key)
+    {
+        key = table.Get("id").Type == MoonSharp.Interpreter.DataType.String
+            ? table.Get("id").String
+            : table.Get("name").Type == MoonSharp.Interpreter.DataType.String
+                ? table.Get("name").String.Replace(' ', '_')
+                : $"mod_{_nextModId}";
+        if (string.IsNullOrWhiteSpace(key))
+            return false;
+        if (ModKeys.ContainsKey(key) || Enum.TryParse<TankId>(key, true, out _))
+        {
+            // Allow replace of prior mod registration with same key.
+            UnregisterMod(key);
+        }
+
+        var id = (TankId)_nextModId++;
+        var def = new TankDef
+        {
+            Id = id,
+            Name = table.Get("name").Type == MoonSharp.Interpreter.DataType.String
+                ? table.Get("name").String
+                : key,
+            LevelRequirement = table.Get("level").Type == MoonSharp.Interpreter.DataType.Number
+                ? (int)table.Get("level").Number
+                : 0,
+            Sides = table.Get("sides").Type == MoonSharp.Interpreter.DataType.Number
+                ? Math.Max(1, (int)table.Get("sides").Number)
+                : 1,
+            Speed = table.Get("speed").Type == MoonSharp.Interpreter.DataType.Number
+                ? table.Get("speed").Number
+                : 1,
+            IsBoss = table.Get("is_boss").Type == MoonSharp.Interpreter.DataType.Boolean
+                && table.Get("is_boss").Boolean,
+            BossAltName = table.Get("boss_name").Type == MoonSharp.Interpreter.DataType.String
+                ? table.Get("boss_name").String
+                : null,
+            PreAddon = table.Get("pre_addon").Type == MoonSharp.Interpreter.DataType.String
+                ? NullIfEmpty(table.Get("pre_addon").String)
+                : null,
+            PostAddon = table.Get("post_addon").Type == MoonSharp.Interpreter.DataType.String
+                ? NullIfEmpty(table.Get("post_addon").String)
+                : null,
+            Upgrades = ParseUpgrades(table.Get("upgrades")),
+            Barrels = ParseBarrels(table.Get("barrels"))
+        };
+        if (def.Barrels.Length == 0)
+        {
+            def.Barrels =
+            [
+                new()
+                {
+                    Angle = 0, Offset = 0, Size = 95, Width = 42, Delay = 0, Reload = 1, Recoil = 1,
+                    IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 0,
+                    CanControlDrones = false, ForceFire = false,
+                    Bullet = new()
+                    {
+                        Type = ProjectileKind.Bullet, SizeRatio = 1, Health = 1, Damage = 1, Speed = 1,
+                        ScatterRate = 1, LifeLength = 1, Absorption = 1
+                    }
+                }
+            ];
+        }
+
+        Map[id] = def;
+        ModKeys[key] = id;
+        ModDefs.Add(def);
+        return true;
+    }
+
+    private static string? NullIfEmpty(string? s) => string.IsNullOrWhiteSpace(s) ? null : s;
+
+    private static TankId[] ParseUpgrades(MoonSharp.Interpreter.DynValue v)
+    {
+        if (v.Type != MoonSharp.Interpreter.DataType.Table)
+            return [];
+        var list = new List<TankId>();
+        foreach (var pair in v.Table.Pairs)
+        {
+            if (pair.Value.Type == MoonSharp.Interpreter.DataType.String && TryParseId(pair.Value.String, out var id))
+                list.Add(id);
+        }
+        return list.ToArray();
+    }
+
+    private static BarrelDef[] ParseBarrels(MoonSharp.Interpreter.DynValue v)
+    {
+        if (v.Type != MoonSharp.Interpreter.DataType.Table)
+            return [];
+        var list = new List<BarrelDef>();
+        foreach (var pair in v.Table.Values)
+        {
+            if (pair.Type != MoonSharp.Interpreter.DataType.Table)
+                continue;
+            var b = pair.Table;
+            var bulletTable = b.Get("bullet");
+            var bullet = new BulletDef
+            {
+                Type = ParseProjectile(bulletTable.Type == MoonSharp.Interpreter.DataType.Table
+                    ? bulletTable.Table.Get("type")
+                    : MoonSharp.Interpreter.DynValue.Nil),
+                SizeRatio = Num(bulletTable, "size", 1),
+                Health = Num(bulletTable, "health", 1),
+                Damage = Num(bulletTable, "damage", 1),
+                Speed = Num(bulletTable, "speed", 1),
+                ScatterRate = Num(bulletTable, "scatter", 1),
+                LifeLength = Num(bulletTable, "life", 1),
+                Absorption = Num(bulletTable, "absorption", 1),
+                Sides = (int)Num(bulletTable, "sides", 0),
+                NeutralColor = bulletTable.Type == MoonSharp.Interpreter.DataType.Table
+                    && bulletTable.Table.Get("neutral").Type == MoonSharp.Interpreter.DataType.Boolean
+                    && bulletTable.Table.Get("neutral").Boolean
+            };
+            list.Add(new BarrelDef
+            {
+                Angle = Num(b, "angle", 0),
+                Offset = Num(b, "offset", 0),
+                Size = Num(b, "size", 95),
+                Width = Num(b, "width", 42),
+                Delay = Num(b, "delay", 0),
+                Reload = Num(b, "reload", 1),
+                Recoil = Num(b, "recoil", 1),
+                TrapezoidDirection = Num(b, "trap_dir", 0),
+                Distance = Num(b, "distance", 0),
+                IsTrapezoid = b.Get("trapezoid").Type == MoonSharp.Interpreter.DataType.Boolean && b.Get("trapezoid").Boolean,
+                ForceFire = b.Get("force_fire").Type == MoonSharp.Interpreter.DataType.Boolean && b.Get("force_fire").Boolean,
+                CanControlDrones = b.Get("control_drones").Type == MoonSharp.Interpreter.DataType.Boolean && b.Get("control_drones").Boolean,
+                DroneCount = (int)Num(b, "drones", 0),
+                Addon = b.Get("addon").Type == MoonSharp.Interpreter.DataType.String ? NullIfEmpty(b.Get("addon").String) : null,
+                Bullet = bullet
+            });
+        }
+        return list.ToArray();
+    }
+
+    private static double Num(MoonSharp.Interpreter.DynValue tableOrNil, string key, double fallback)
+    {
+        if (tableOrNil.Type != MoonSharp.Interpreter.DataType.Table)
+            return fallback;
+        return Num(tableOrNil.Table, key, fallback);
+    }
+
+    private static double Num(MoonSharp.Interpreter.Table table, string key, double fallback)
+    {
+        var v = table.Get(key);
+        return v.Type == MoonSharp.Interpreter.DataType.Number ? v.Number : fallback;
+    }
+
+    private static ProjectileKind ParseProjectile(MoonSharp.Interpreter.DynValue v)
+    {
+        if (v.Type == MoonSharp.Interpreter.DataType.String &&
+            Enum.TryParse<ProjectileKind>(v.String, true, out var kind))
+            return kind;
+        return ProjectileKind.Bullet;
+    }
 }
 

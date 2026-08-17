@@ -62,6 +62,13 @@ public sealed class ShapeEntity
     {
         if (amount <= 0)
             return;
+        var mods = ModHost.Current;
+        if (mods is not null)
+        {
+            amount = mods.EmitDamage("shape_hurt", amount, this);
+            if (amount <= 0)
+                return;
+        }
         Health -= amount;
         Flash.Hit();
     }
@@ -89,6 +96,7 @@ public sealed class BulletEntity
     public bool NoDestroyAnim;
     public ProjectileKind Kind;
     public Color Fill;
+    public bool Visible = true;
     public BarrelState[] Guns = [];
     public DestroyAnim Destroy { get; } = new();
 
@@ -151,6 +159,8 @@ public sealed class TankEntity
     public int XpForNext = 10;
     public readonly int[] Stats = new int[8];
     public bool Alive = true;
+    /// <summary>When false, pet AI is skipped so a mod can steer this tank.</summary>
+    public bool AiEnabled = true;
     public bool IsArenaCloser;
     public bool IsBoss;
     public string? BossAltName;

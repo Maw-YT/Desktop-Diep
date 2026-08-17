@@ -18,12 +18,19 @@ internal sealed class WorldRenderer
         foreach (var s in world.Shapes)
             DrawShape(dc, s, t, bars);
         foreach (var b in world.Bullets)
+        {
+            if (!b.Visible && !b.Destroy.Active)
+                continue;
             DrawBullet(dc, b, t);
+        }
         foreach (var tank in world.Tanks)
         {
             if (tank.Alive || tank.Destroy.Active)
                 DrawTank(dc, tank, t, bars, world.ShowSelectionHalo && tank == world.Selected);
         }
+
+        world.Mods?.BeginFrameDraw();
+        world.Mods?.Draw.Render(dc, _draw);
     }
 
     private void DrawTank(DrawingContext dc, TankEntity tank, double t, double bars, bool selected)

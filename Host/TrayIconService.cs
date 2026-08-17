@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Drawing = System.Drawing;
 using WinForms = System.Windows.Forms;
 
@@ -21,6 +22,7 @@ internal sealed class TrayIconService : IDisposable
     private readonly WinForms.ToolStripMenuItem _bossesItem;
     private readonly WinForms.ToolStripMenuItem _classItem;
     private readonly WinForms.ToolStripMenuItem _statsItem;
+    private readonly WinForms.ToolStripMenuItem _modsItem;
     private GameWorld? _world;
     private bool _rebuilding;
 
@@ -42,6 +44,8 @@ internal sealed class TrayIconService : IDisposable
     public event Action<TankId>? SetClass;
     public event Action<ShapeKind?>? SpawnShape;
     public event Action<TankId?>? SpawnBoss;
+    public event Action? ReloadMods;
+    public event Action<string, bool>? SetModEnabled;
     public event Action<RenderStyle>? SetRenderStyle;
 
     public TrayIconService()
@@ -67,6 +71,7 @@ internal sealed class TrayIconService : IDisposable
         _bossesItem = new WinForms.ToolStripMenuItem("Spawn boss");
         _classItem = new WinForms.ToolStripMenuItem("Class");
         _statsItem = new WinForms.ToolStripMenuItem("Stats");
+        _modsItem = new WinForms.ToolStripMenuItem("Mods");
 
         _debugItem.Click += (_, _) => { if (!_rebuilding) ToggleDebug?.Invoke(); };
         _pauseItem.Click += (_, _) => { if (!_rebuilding) TogglePause?.Invoke(); };
@@ -84,10 +89,6 @@ internal sealed class TrayIconService : IDisposable
         AddShapeItem("Alpha Pentagon", ShapeKind.AlphaPentagon);
         AddShapeItem("Crasher", ShapeKind.Crasher);
 
-        AddBossItem("Random", null);
-        foreach (var boss in TankCatalog.Bosses)
-            AddBossItem(boss.BossAltName ?? boss.Name, boss.Id);
-
         _menu = new WinForms.ContextMenuStrip();
         _menu.Opening += (_, _) => Rebuild();
         _menu.Items.Add(_tanksItem);
@@ -95,6 +96,7 @@ internal sealed class TrayIconService : IDisposable
         _menu.Items.Add(_bossesItem);
         _menu.Items.Add(_classItem);
         _menu.Items.Add(_statsItem);
+        _menu.Items.Add(_modsItem);
         _menu.Items.Add(_renderItem);
         _menu.Items.Add(new WinForms.ToolStripSeparator());
         _menu.Items.Add(_debugItem);
@@ -156,6 +158,8 @@ internal sealed class TrayIconService : IDisposable
             RebuildClass(_world);
             RebuildStats(_world);
             RebuildRender(_world);
+            RebuildBosses(_world);
+            RebuildMods(_world);
         }
         finally
         {
@@ -175,6 +179,86 @@ internal sealed class TrayIconService : IDisposable
         var item = new WinForms.ToolStripMenuItem(label);
         item.Click += (_, _) => { if (!_rebuilding) SpawnBoss?.Invoke(kind); };
         _bossesItem.DropDownItems.Add(item);
+    }
+
+    private void RebuildBosses(GameWorld world)
+    {
+        _bossesItem.DropDownItems.Clear();
+        AddBossItem("Random", null);
+        foreach (var boss in TankCatalog.BossList)
+            AddBossItem(boss.BossAltName ?? boss.Name, boss.Id);
+    }
+
+    private void RebuildMods(GameWorld world)
+    {
+        _modsItem.DropDownItems.Clear();
+        var entries = world.Mods?.ListEntries() ?? [];
+        if (entries.Count == 0)
+        {
+            _modsItem.DropDownItems.Add(new WinForms.ToolStripMenuItem("(none)") { Enabled = false });
+        }
+        else
+        {
+            foreach (var entry in entries)
+            {
+                var folder = entry.Folder;
+                var id = entry.Id;
+                var item = new WinForms.ToolStripMenuItem(entry.MenuLabel)
+                {
+                    Checked = entry.Enabled,
+                    ToolTipText = entry.Tooltip
+                };
+                if (entry.CanToggle)
+                {
+                    var enabledItem = new WinForms.ToolStripMenuItem("Enabled")
+                    {
+                        Checked = entry.Enabled,
+                        CheckOnClick = true
+                    };
+                    enabledItem.Click += (_, _) =>
+                    {
+                        if (!_rebuilding)
+                            SetModEnabled?.Invoke(id, enabledItem.Checked);
+                    };
+                    item.DropDownItems.Add(enabledItem);
+                }
+                var open = new WinForms.ToolStripMenuItem("Open folder");
+                open.Click += (_, _) => OpenFolder(folder);
+                item.DropDownItems.Add(open);
+                if (!string.IsNullOrWhiteSpace(entry.Error))
+                {
+                    item.DropDownItems.Add(new WinForms.ToolStripMenuItem(entry.Error)
+                    {
+                        Enabled = false
+                    });
+                }
+                _modsItem.DropDownItems.Add(item);
+            }
+        }
+
+        _modsItem.DropDownItems.Add(new WinForms.ToolStripSeparator());
+        _modsItem.DropDownItems.Add("Reload mods", null, (_, _) =>
+        {
+            if (!_rebuilding) ReloadMods?.Invoke();
+        });
+        _modsItem.DropDownItems.Add("Open mods folder", null, (_, _) => OpenFolder(ModHost.ModsRoot));
+    }
+
+    private static void OpenFolder(string path)
+    {
+        try
+        {
+            System.IO.Directory.CreateDirectory(path);
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = path,
+                UseShellExecute = true
+            });
+        }
+        catch
+        {
+            // ignore
+        }
     }
 
     private void RebuildTanks(GameWorld world)
@@ -206,7 +290,7 @@ internal sealed class TrayIconService : IDisposable
         _classItem.DropDownItems.Clear();
         var selected = world.Selected;
         var canClass = selected is { IsBoss: false, IsArenaCloser: false };
-        foreach (var def in TankCatalog.All)
+        foreach (var def in TankCatalog.Playable)
         {
             var id = def.Id;
             var item = new WinForms.ToolStripMenuItem(def.Name)

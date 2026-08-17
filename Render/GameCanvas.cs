@@ -9,6 +9,7 @@ public sealed class GameCanvas : FrameworkElement
     private readonly DrawCache _draw;
     private readonly WorldRenderer _worldRenderer;
     private readonly DebugOverlay _debugOverlay;
+    private ModHost? _mods;
     private TimeSpan _lastTime = TimeSpan.Zero;
     private double _fpsEma;
     private bool _started;
@@ -113,6 +114,10 @@ public sealed class GameCanvas : FrameworkElement
         InvalidateVisual();
     }
 
+    public void ReloadMods() => _mods?.Reload();
+
+    public void SetModEnabled(string id, bool enabled) => _mods?.SetEnabled(id, enabled);
+
     private static void PersistSettings(GameWorld world) => AppSettings.SaveFrom(world);
 
     private void PersistSettings() => PersistSettings(_world);
@@ -122,6 +127,9 @@ public sealed class GameCanvas : FrameworkElement
         if (_started) return;
         _started = true;
         AppSettings.Load().Apply(_world);
+        _mods = new ModHost(_world);
+        _world.Mods = _mods;
+        _mods.Start();
         ResetWorld();
         CompositionTarget.Rendering += OnRendering;
         SizeChanged += (_, _) => _world.Resize(ActualWidth, ActualHeight);
@@ -131,6 +139,9 @@ public sealed class GameCanvas : FrameworkElement
     {
         PersistSettings();
         CompositionTarget.Rendering -= OnRendering;
+        _mods?.Dispose();
+        _mods = null;
+        _world.Mods = null;
         _started = false;
     }
 

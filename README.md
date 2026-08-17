@@ -42,10 +42,29 @@ Drag tanks/shapes with the mouse when the cursor is over them. The overlay is cl
 - **Cursor collisions** — optional physics push from the mouse
 - **Arena closers** — tray **Close Arena** ends the session diep-style
 - **Settings** — tray toggles persist under `%LocalAppData%\DesktopDiep\settings.json`
+- **Lua mods** — drop scripts in `%LocalAppData%\DesktopDiep\mods\` ([Mod API](mod-api.md))
 
 ## Tray menu
 
 Spawn shapes/bosses, pick tank class and stats, toggle debug (A*, spatial hash), interpolation, selection halo, window/cursor collisions, close the arena, or quit.
+
+**Mods** lists every folder under `%LocalAppData%\DesktopDiep\mods\`, with a checkmark when a script is running. Toggle **Enabled** on a mod to turn it off or on (persists across restarts). Open a single mod folder from its submenu, or use **Open mods folder** / **Reload mods**.
+
+## Lua mods
+
+Mods live in `%LocalAppData%\DesktopDiep\mods\<modName>\` with `mod.json` + `main.lua`. An `example_chaos` mod is installed on first launch. Full reference: **[mod-api.md](mod-api.md)**.
+
+```json
+{
+  "id": "my_mod",
+  "name": "My Mod",
+  "version": "1.0.0",
+  "author": "you",
+  "entry": "main.lua"
+}
+```
+
+Globals: `Mod`, `World`, `Events`, `Catalog`, `Notify`, `Timers`, `Util`, `Draw`, `Input`. Reload from tray **Mods → Reload mods** after editing.
 
 ## Notes
 

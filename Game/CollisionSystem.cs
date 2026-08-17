@@ -97,6 +97,15 @@ internal sealed class CollisionSystem
                 return;
         }
 
+        if (world.Mods?.EmitCancel("collision", e =>
+            {
+                e["kind_a"] = a.Kind.ToString();
+                e["kind_b"] = b.Kind.ToString();
+                e["index_a"] = a.Index;
+                e["index_b"] = b.Index;
+            }, world.EntityFromPhys(a.Kind, a.Index), world.EntityFromPhys(b.Kind, b.Index)) == true)
+            return;
+
         ApplyKnockback(world, a, b);
 
         if (a.Kind == PhysKind.Shape && b.Kind == PhysKind.Shape)
