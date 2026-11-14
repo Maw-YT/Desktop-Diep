@@ -20,6 +20,7 @@ internal sealed class AppSettings
     public bool CollideCursor { get; set; } = true;
     public bool DebugOverlay { get; set; }
     public RenderStyle RenderStyle { get; set; } = RenderStyle.New;
+    public string Gamemode { get; set; } = "ffa";
 
     public static AppSettings Load()
     {
@@ -46,6 +47,7 @@ internal sealed class AppSettings
         world.CollideCursor = CollideCursor;
         world.Debug.Enabled = DebugOverlay;
         world.RenderStyle = RenderLooks.Normalize(RenderStyle);
+        world.SetGameMode(GameModes.Parse(Gamemode), announce: false);
     }
 
     public void Capture(GameWorld world)
@@ -58,6 +60,7 @@ internal sealed class AppSettings
         CollideCursor = world.CollideCursor;
         DebugOverlay = world.Debug.Enabled;
         RenderStyle = RenderLooks.Normalize(world.RenderStyle);
+        Gamemode = GameModes.Id(world.Mode);
     }
 
     public void Save()

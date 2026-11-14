@@ -11,7 +11,7 @@ public sealed class DamageFlash
 
     public void Capture() => Prev = Amount;
 
-    public void Tick() => Amount = Math.Max(0, Amount - 0.5);
+    public void Tick() => Amount = Math.Max(0, Amount - GameWorld.TickDt / 0.18);
 
     public void Reset()
     {
@@ -65,7 +65,7 @@ internal static class DiepColors
     public static Color Team(int id) => Teams[Math.Abs(id) % Teams.Length];
 
     public static Color Stroke(Color fill) =>
-        Color.FromRgb((byte)(fill.R * 0.72), (byte)(fill.G * 0.72), (byte)(fill.B * 0.72));
+        Color.FromRgb((byte)(fill.R * 0.62), (byte)(fill.G * 0.62), (byte)(fill.B * 0.62));
 
     public static Color Mix(Color a, Color b, double t)
     {
@@ -76,6 +76,13 @@ internal static class DiepColors
             (byte)(a.B + (b.B - a.B) * t));
     }
 
-    public static Color Hit(Color fill, double flash) =>
-        flash <= 0.001 ? fill : Mix(fill, Damage, flash);
+    /// <summary>diep hit flash: 1 red, 0.5 white, 0 the original color. Fades over 0.18s.</summary>
+    public static Color Hit(Color fill, double flash)
+    {
+        if (flash <= 0.001)
+            return fill;
+        if (flash > 0.5)
+            return Mix(Colors.White, Damage, (flash - 0.5) * 2);
+        return Mix(fill, Colors.White, flash / 0.5);
+    }
 }

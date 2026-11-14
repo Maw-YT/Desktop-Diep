@@ -69,7 +69,8 @@ public enum ProjectileKind
     Rocket,
     Flame,
     Croc,
-    Wall
+    Wall,
+    Custom
 }
 
 public sealed class BulletDef
@@ -78,6 +79,7 @@ public sealed class BulletDef
     public double SizeRatio, Health, Damage, Speed, ScatterRate, LifeLength, Absorption;
     public int Sides;
     public bool NeutralColor;
+    public string? CustomType;
 }
 
 public sealed class BarrelDef
@@ -381,15 +383,14 @@ internal static class TankCatalog
             LevelRequirement = 75, Speed = 0.55, Sides = 3, PreAddon = null, PostAddon = null, Upgrades = [],
             Barrels =
             [
-                // Petite rear trapezoid like the wiki Guardian (not diepcustom's oversized 100×71.4 stub).
                 new()
                 {
-                    Angle = Math.PI, Offset = 0, Size = 52, Width = 48, Delay = 0, Reload = 0.36, Recoil = 1,
+                    Angle = Math.PI, Offset = 0, Size = 100, Width = 71.4, Delay = 0, Reload = 0.36, Recoil = 1,
                     IsTrapezoid = true, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 24,
                     CanControlDrones = true, ForceFire = false,
                     Bullet = new()
                     {
-                        Type = ProjectileKind.Drone, SizeRatio = 0.85, Health = 12.5, Damage = 0.56,
+                        Type = ProjectileKind.Drone, SizeRatio = 21 / (71.4 / 2), Health = 12.5, Damage = 0.56,
                         Speed = 1.7, ScatterRate = 1, LifeLength = 1.5, Absorption = 1, Sides = 3
                     }
                 },
@@ -447,19 +448,19 @@ internal static class TankCatalog
 
     private static BarrelDef SummonerGun(double angle) => new()
     {
-        Angle = angle, Offset = 0, Size = 58, Width = 38, Delay = 0, Reload = 0.36, Recoil = 1,
+        Angle = angle, Offset = 0, Size = 135, Width = 71.4, Delay = 0, Reload = 0.36, Recoil = 1,
         IsTrapezoid = true, TrapezoidDirection = 0, Distance = 0, Addon = null, DroneCount = 7,
         CanControlDrones = true, ForceFire = false,
         Bullet = new()
         {
-            Type = ProjectileKind.Drone, SizeRatio = 0.9, Health = 12.5, Damage = 0.56,
+            Type = ProjectileKind.Drone, SizeRatio = 55 * DiepView.SqrtHalf / (71.4 / 2), Health = 12.5, Damage = 0.56,
             Speed = 1.7, ScatterRate = 1, LifeLength = -1, Absorption = 1, Sides = 4
         }
     };
 
     private static BarrelDef DefenderTrap(double angle) => new()
     {
-        Angle = angle, Offset = 0, Size = 55, Width = 40, Delay = 0, Reload = 5, Recoil = 2,
+        Angle = angle, Offset = 0, Size = 120, Width = 71.4, Delay = 0, Reload = 5, Recoil = 2,
         IsTrapezoid = false, TrapezoidDirection = 0, Distance = 0, Addon = "trapLauncher", DroneCount = 0,
         CanControlDrones = false, ForceFire = true,
         Bullet = new()
@@ -663,11 +664,13 @@ internal static class TankCatalog
                 continue;
             var b = pair.Table;
             var bulletTable = b.Get("bullet");
+            var typeValue = bulletTable.Type == MoonSharp.Interpreter.DataType.Table
+                ? bulletTable.Table.Get("type")
+                : MoonSharp.Interpreter.DynValue.Nil;
             var bullet = new BulletDef
             {
-                Type = ParseProjectile(bulletTable.Type == MoonSharp.Interpreter.DataType.Table
-                    ? bulletTable.Table.Get("type")
-                    : MoonSharp.Interpreter.DynValue.Nil),
+                Type = ParseProjectile(typeValue, out var customType),
+                CustomType = customType,
                 SizeRatio = Num(bulletTable, "size", 1),
                 Health = Num(bulletTable, "health", 1),
                 Damage = Num(bulletTable, "damage", 1),
@@ -715,11 +718,18 @@ internal static class TankCatalog
         return v.Type == MoonSharp.Interpreter.DataType.Number ? v.Number : fallback;
     }
 
-    private static ProjectileKind ParseProjectile(MoonSharp.Interpreter.DynValue v)
+    private static ProjectileKind ParseProjectile(MoonSharp.Interpreter.DynValue v, out string? custom)
     {
-        if (v.Type == MoonSharp.Interpreter.DataType.String &&
-            Enum.TryParse<ProjectileKind>(v.String, true, out var kind))
+        custom = null;
+        if (v.Type != MoonSharp.Interpreter.DataType.String)
+            return ProjectileKind.Bullet;
+        if (Enum.TryParse<ProjectileKind>(v.String, true, out var kind) && kind != ProjectileKind.Custom)
             return kind;
+        if (ModContent.Projectile(v.String) is not null)
+        {
+            custom = v.String;
+            return ProjectileKind.Custom;
+        }
         return ProjectileKind.Bullet;
     }
 }

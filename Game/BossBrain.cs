@@ -3,7 +3,6 @@ namespace DesktopDiep;
 /// <summary>Diepcustom-style boss patrol + aim (see AbstractBoss / Guardian / etc.).</summary>
 internal static class BossBrain
 {
-    private const double CornerReach = 300 * 300;
 
     public static void Think(TankEntity tank, GameWorld world, out double ax, out double ay)
     {
@@ -62,7 +61,8 @@ internal static class BossBrain
         var (tx, ty) = corners[i];
         var dx = tx - tank.X;
         var dy = ty - tank.Y;
-        if (dx * dx + dy * dy < CornerReach)
+        var reach = DiepView.Px(300);
+        if (dx * dx + dy * dy < reach * reach)
         {
             i = (i + 1) % 4;
             tank.Brain.BossCorner = i;

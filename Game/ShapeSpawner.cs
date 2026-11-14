@@ -76,7 +76,7 @@ internal sealed class ShapeSpawner
         {
             X = x,
             Y = y,
-            Radius = radius,
+            Radius = DiepView.Units(radius),
             Mass = mass,
             Health = hp,
             MaxHealth = hp,
@@ -90,7 +90,7 @@ internal sealed class ShapeSpawner
             Spin = (_rng.NextDouble() < 0.5 ? -1 : 1) * 0.01,
             OrbitAngle = orbitAngle,
             OrbitSpeed = orbitSpeed,
-            ShapeVelocity = speed,
+            ShapeVelocity = DiepView.Px(speed),
             OrbitRadius = 1,
             OrbitCx = x,
             OrbitCy = y
@@ -110,19 +110,19 @@ internal sealed class ShapeSpawner
         {
             case ShapeKind.AlphaPentagon:
                 fill = DiepColors.AlphaPentagon;
-                radius = 78;
+                radius = 200 * DiepView.SqrtHalf;
                 hp = 3600;
                 xp = 3000;
                 mass = 52;
                 absorb = 0.05;
                 push = 16;
                 ram = 8;
-                speed = ShapeMotion.BaseVelocity * 0.55;
+                speed = ShapeMotion.BaseVelocity * 0.5;
                 break;
             case ShapeKind.Crasher:
                 var large = _rng.NextDouble() < 0.22;
                 fill = DiepColors.Crasher;
-                radius = large ? 22 : 14;
+                radius = (large ? 55 : 35) * DiepView.SqrtHalf;
                 hp = large ? 42 : 15;
                 xp = large ? 25 : 15;
                 mass = large ? 6.2 : 2.8;
@@ -133,21 +133,22 @@ internal sealed class ShapeSpawner
                 break;
             case ShapeKind.Triangle:
                 fill = DiepColors.Triangle;
-                radius = 18;
+                radius = 55 * DiepView.SqrtHalf;
                 hp = 42;
                 xp = 25;
                 mass = 4.0;
                 break;
             case ShapeKind.Pentagon:
                 fill = DiepColors.Pentagon;
-                radius = 26;
+                radius = 75 * DiepView.SqrtHalf;
                 hp = 140;
                 xp = 130;
                 mass = 8.5;
+                speed = ShapeMotion.BaseVelocity * 0.5;
                 break;
             default:
                 fill = DiepColors.Square;
-                radius = 16;
+                radius = 55 * DiepView.SqrtHalf;
                 hp = 15;
                 xp = 10;
                 mass = 2.6;

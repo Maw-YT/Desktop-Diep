@@ -45,6 +45,17 @@ internal sealed class TankProxy
     public bool ai { get => _t.AiEnabled; set => _t.AiEnabled = value; }
     public bool is_boss => _t.IsBoss;
     public bool is_closer => _t.IsArenaCloser;
+    public bool is_mothership => _t.IsMothership;
+    public int team
+    {
+        get => _t.Team;
+        set => _w.SetTeam(_t, value);
+    }
+    public string shader
+    {
+        get => _t.Shader ?? "";
+        set => _t.Shader = string.IsNullOrWhiteSpace(value) ? null : value;
+    }
     public bool is_ram => TankStats.IsRam(_t);
     public bool is_selected => _w.Selected == _t;
     public bool wants_shot { get => _t.Brain.WantsShot; set => _t.Brain.WantsShot = value; }
@@ -237,6 +248,14 @@ internal sealed class ShapeProxy
     public double max_health { get => _s.MaxHealth; set => _s.MaxHealth = value; }
     public double ram_damage { get => _s.RamDamage; set => _s.RamDamage = value; }
     public double spin { get => _s.Spin; set => _s.Spin = value; }
+    public int sides { get => _s.Sides; set => _s.Sides = Math.Max(0, (int)value); }
+    public int team { get => _s.Team; set => _s.Team = value; }
+    public string shader
+    {
+        get => _s.Shader ?? "";
+        set => _s.Shader = string.IsNullOrWhiteSpace(value) ? null : value;
+    }
+    public string custom_id => _s.CustomId ?? "";
     public int xp { get => _s.Xp; set => _s.Xp = value; }
     public bool destroying => _s.Destroy.Active;
 
@@ -324,6 +343,13 @@ internal sealed class BulletProxy
     public int age => _b.Age;
     public int barrel_index => _b.BarrelIndex;
     public bool visible { get => _b.Visible; set => _b.Visible = value; }
+    public int team { get => _b.Team; set => _b.Team = value; }
+    public string custom_id => _b.CustomId ?? "";
+    public string shader
+    {
+        get => _b.Shader ?? "";
+        set => _b.Shader = string.IsNullOrWhiteSpace(value) ? null : value;
+    }
     public bool can_control { get => _b.CanControl; set => _b.CanControl = value; }
     public int owner_id { get => _b.OwnerId; set => _b.OwnerId = value; }
 
@@ -355,13 +381,59 @@ internal sealed class BulletProxy
 
     private void SetKind(string name)
     {
-        if (!Enum.TryParse<ProjectileKind>(name, true, out var k))
+        if (Enum.TryParse<ProjectileKind>(name, true, out var k) && k != ProjectileKind.Custom)
+        {
+            Projectile.Retype(_b, _w.FindTank(_b.OwnerId), k);
             return;
-        Projectile.Retype(_b, _w.FindTank(_b.OwnerId), k);
+        }
+        if (ModContent.Projectile(name) is null)
+            return;
+        _b.Kind = ProjectileKind.Custom;
+        ModContent.ConfigureShot(_b, name);
     }
 
     private static byte ToByte(double t) =>
         (byte)Math.Clamp(t <= 1.0 && t >= 0 ? t * 255.0 : t, 0, 255);
+}
+
+[MoonSharpUserData]
+internal sealed class ObjectProxy
+{
+    private readonly ArenaObject _o;
+    private readonly GameWorld _w;
+
+    public ObjectProxy(ArenaObject o, GameWorld w)
+    {
+        _o = o;
+        _w = w;
+    }
+
+    public ArenaObject Raw => _o;
+    public int id => _o.Id;
+    public string kind => _o.Kind;
+    public string label { get => _o.Label; set => _o.Label = value ?? ""; }
+    public double x { get => _o.X; set => _o.X = value; }
+    public double y { get => _o.Y; set => _o.Y = value; }
+    public double w { get => _o.W; set => _o.W = value; }
+    public double h { get => _o.H; set => _o.H = value; }
+    public double radius { get => _o.Radius; set => _o.Radius = value; }
+    public double vx { get => _o.Vx; set => _o.Vx = value; }
+    public double vy { get => _o.Vy; set => _o.Vy = value; }
+    public double health { get => _o.Health; set => _o.Health = value; }
+    public double max_health { get => _o.MaxHealth; set => _o.MaxHealth = value; }
+    public double opacity { get => _o.Opacity; set => _o.Opacity = value; }
+    public double damage { get => _o.DamagePerTick; set => _o.DamagePerTick = value; }
+    public double heal { get => _o.HealPerTick; set => _o.HealPerTick = value; }
+    public int team { get => _o.Team; set => _o.Team = value; }
+    public bool solid { get => _o.Solid; set => _o.Solid = value; }
+    public bool alive => _o.Alive;
+    public string shader
+    {
+        get => _o.Shader ?? "";
+        set => _o.Shader = string.IsNullOrWhiteSpace(value) ? null : value;
+    }
+
+    public void remove() => _w.RemoveObject(_o);
 }
 
 internal static class EntityProxies
@@ -375,6 +447,7 @@ internal static class EntityProxies
         UserData.RegisterType<ShapeProxy>();
         UserData.RegisterType<BulletProxy>();
         UserData.RegisterType<BarrelProxy>();
+        UserData.RegisterType<ObjectProxy>();
         _registered = true;
     }
 
@@ -386,4 +459,7 @@ internal static class EntityProxies
 
     public static DynValue Bullet(Script script, BulletEntity? b, GameWorld w) =>
         b is null ? DynValue.Nil : UserData.Create(new BulletProxy(b, w, script));
+
+    public static DynValue Obj(Script script, ArenaObject? o, GameWorld w) =>
+        o is null ? DynValue.Nil : UserData.Create(new ObjectProxy(o, w));
 }

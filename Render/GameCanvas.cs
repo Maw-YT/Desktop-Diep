@@ -114,6 +114,13 @@ public sealed class GameCanvas : FrameworkElement
         InvalidateVisual();
     }
 
+    public void SetGameMode(GameMode mode)
+    {
+        _world.SetGameMode(mode);
+        PersistSettings();
+        InvalidateVisual();
+    }
+
     public void ReloadMods() => _mods?.Reload();
 
     public void SetModEnabled(string id, bool enabled) => _mods?.SetEnabled(id, enabled);
@@ -165,6 +172,8 @@ public sealed class GameCanvas : FrameworkElement
             return;
         }
 
+        var dpi = VisualTreeHelper.GetDpi(this);
+        _world.Windows.SetDpi(dpi.DpiScaleX, dpi.DpiScaleY);
         var dt = Math.Clamp((re.RenderingTime - _lastTime).TotalSeconds, 0, 0.05);
         _lastTime = re.RenderingTime;
         _world.Debug.FrameMs = dt * 1000;

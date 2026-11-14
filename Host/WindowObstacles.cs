@@ -59,8 +59,15 @@ public sealed class WindowObstacles
     private readonly List<WindowBox> _boxes = [];
     private readonly Win32.EnumWindowsProc _enum;
     private readonly StringBuilder _className = new(64);
+    private double _dpiX = 1, _dpiY = 1;
     private nint _overlay;
     private double _originX, _originY, _screenW, _screenH;
+
+    public void SetDpi(double dpiX, double dpiY)
+    {
+        _dpiX = dpiX > 0.5 ? dpiX : 1;
+        _dpiY = dpiY > 0.5 ? dpiY : 1;
+    }
 
     public IReadOnlyList<WindowBox> Boxes => _boxes;
 
@@ -97,10 +104,10 @@ public sealed class WindowObstacles
     {
         _boxes.Clear();
         _overlay = overlayHwnd;
-        _originX = SystemParameters.VirtualScreenLeft;
-        _originY = SystemParameters.VirtualScreenTop;
-        _screenW = SystemParameters.VirtualScreenWidth;
-        _screenH = SystemParameters.VirtualScreenHeight;
+        _originX = Win32.GetSystemMetrics(Win32.SmXVirtualScreen);
+        _originY = Win32.GetSystemMetrics(Win32.SmYVirtualScreen);
+        _screenW = Win32.GetSystemMetrics(78); // SM_CXVIRTUALSCREEN
+        _screenH = Win32.GetSystemMetrics(79);
         if (overlayHwnd == 0)
             return;
         Win32.EnumWindows(_enum, 0);
@@ -127,16 +134,16 @@ public sealed class WindowObstacles
             return true;
         var w = r.Right - r.Left;
         var h = r.Bottom - r.Top;
-        if (w < 80 || h < 80)
+        if (w < 80 * _dpiX || h < 80 * _dpiY)
             return true;
-        if (w >= _screenW - 4 && h >= _screenH - 4)
+        if (w >= _screenW - 8 && h >= _screenH - 8)
             return true;
 
         _boxes.Add(new WindowBox(
-            r.Left - _originX,
-            r.Top - _originY,
-            r.Right - _originX,
-            r.Bottom - _originY));
+            (r.Left - _originX) / _dpiX,
+            (r.Top - _originY) / _dpiY,
+            (r.Right - _originX) / _dpiX,
+            (r.Bottom - _originY) / _dpiY));
         return true;
     }
 

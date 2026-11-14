@@ -561,9 +561,82 @@ end)
 
 ---
 
+## Shaders
+
+A shader recolors one body per frame. Register it, then set `shader` on a tank, shape, bullet, or object, or set `World.shader("id")` for every body that does not have its own.
+
+```lua
+Catalog.register_shader({
+  id = "pulse",
+  apply = function(ctx)
+    local w = 0.65 + 0.35 * math.sin(ctx.time * 5 + ctx.x * 0.01)
+    return { r = ctx.r * w, g = ctx.g, b = ctx.b, a = 1, glow = 14 }
+  end
+})
+
+local tank = World.selected()
+if tank then tank.shader = "pulse" end
+```
+
+`ctx` has `kind`, `x`, `y`, `time`, `radius`, `team`, `r`, `g`, `b`, `a` (0–1). The return table may set `r`, `g`, `b`, `a`, and `glow` (extra radius, in pixels). `World.shader("")` clears the screen shader.
+
+## Custom projectiles, shapes, addons, objects
+
+```lua
+Catalog.register_projectile({
+  id = "orb",
+  sides = 8, star = false, size = 1.3,
+  health = 1.4, damage = 1.1, speed = 0.9, life = 1.2, spin = 0.05,
+  color = { r = 1, g = 0.4, b = 0.8 },
+  tick = function(bullet, dt) end,
+  hit = function(bullet, other) return true end -- false skips damage
+})
+
+Catalog.register_shape({
+  id = "gem", sides = 6, radius = 36, health = 90, xp = 50,
+  mass = 5, spin = 0.02, ram = 3,
+  color = { r = 1, g = 0.3, b = 0.7 }
+})
+
+Catalog.register_addon({
+  id = "crown",
+  turrets = 1,
+  guards = { { sides = 3, size = 1.35, angle = 0, spin = 0.12 } }
+})
+
+World.spawn_shape("gem", 200, 200)
+World.spawn_bullet({ x = 0, y = 0, kind = "orb", owner = World.selected() })
+World.spawn_object({
+  x = 300, y = 200, w = 80, h = 30, -- or radius = 24
+  solid = true, team = 1, damage = 0.4, heal = 0.2,
+  color = { r = 0.3, g = 0.5, b = 1 }, opacity = 0.4
+})
+```
+
+Projectile `size`, `health`, `damage`, `speed`, and `life` multiply the barrel shot. `scripted = true` leaves acceleration at 0 so `tick` can drive it. A tank barrel can set `bullet.type = "orb"`. An addon id can be `pre_addon` / `post_addon` on `register_tank`. `turrets` is `1` for a center gun, or more for an orbit.
+
+Objects are centered. `solid = true` blocks movement like a wall. `damage` and `heal` are per tick to enemies and allies inside. `health = 0` is indestructible.
+
+## Teams and gamemodes
+
+Tray **Gamemode**, or `World.gamemode("4teams")`. Ids match the Luvit engine: `ffa`, `teams`, `4teams`, `dom`, `mot`, `survival`, `maze`, `sandbox`.
+
+| Id | What it does |
+| --- | --- |
+| `ffa` | Everyone fights. The usual desktop pet |
+| `teams` | Blue and red. Side bases damage enemies and heal allies. Same team does not hurt itself |
+| `4teams` | Blue, red, purple, green, with a base in each corner |
+| `dom` | Two teams and four dominators. Shoot one down to capture it |
+| `mot` | Each team has a mothership. Destroying it respawns that ship after a few seconds |
+| `survival` | Last living pet wins, then the arena closes. Shape score is tripled |
+| `maze` | Wall maze. No timed bosses |
+| `sandbox` | Pets do not die. No timed bosses |
+
+`tank.team` is `0` in FFA, or `1` blue, `2` red, `3` purple, `4` green. Bullets copy the shooter's team. `World.teams()` lists the teams for the current mode.
+
 ## Limits and pitfalls
 
-- Max **12** pet tanks; bosses and closers do not count toward that cap.
+- Max **12** pet tanks. Bosses, closers, and motherships do not count toward that cap.
 - Max **~160** natural bullets, **200** for `spawn_bullet`.
 - Draw list capped at **2500** commands per frame.
 - A Lua error disables that mod until reload.

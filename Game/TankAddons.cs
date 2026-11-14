@@ -97,7 +97,27 @@ internal static class TankAddons
                 break;
             case "defender":
                 // diepcustom: offset = 60 / (DEFENDER_SIZE * SQRT1_2) ≈ 0.566
-                Orbit(turrets, 3, 0.55, DefenderTurret());
+                Orbit(turrets, 3, 60 / (150 * DiepView.SqrtHalf), DefenderTurret());
+                break;
+            default:
+                var custom = ModContent.Addon(id);
+                if (custom is null)
+                    break;
+                foreach (var guard in custom.Guards)
+                {
+                    guards.Add(new GuardAddon
+                    {
+                        Sides = guard.Sides,
+                        SizeRatio = guard.SizeRatio,
+                        Angle = guard.Angle,
+                        PrevAngle = guard.Angle,
+                        Spin = guard.Spin
+                    });
+                }
+                if (custom.Turrets == 1)
+                    turrets.Add(Center());
+                else if (custom.Turrets > 1)
+                    Orbit(turrets, custom.Turrets);
                 break;
         }
     }

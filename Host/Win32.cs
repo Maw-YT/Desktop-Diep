@@ -48,6 +48,11 @@ internal static class Win32
     public static extern bool GetCursorPos(out PointI lpPoint);
 
     public const int VkLButton = 0x01;
+    public const int SmXVirtualScreen = 76;
+    public const int SmYVirtualScreen = 77;
+
+    [DllImport("user32.dll")]
+    public static extern int GetSystemMetrics(int nIndex);
     public const int DwmwaCloaked = 14;
 
     public delegate bool EnumWindowsProc(nint hWnd, nint lParam);

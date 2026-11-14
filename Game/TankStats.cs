@@ -26,7 +26,7 @@ internal static class TankStats
     public static void Recalc(TankEntity tank)
     {
         tank.MaxHealth = 48 + tank.Stats[MaxHealth] * 20 + (tank.Level - 1) * 2;
-        tank.Radius = 20 + Math.Min(8, tank.Level * 0.12);
+        tank.Radius = DiepView.Px(20 + Math.Min(8, tank.Level * 0.12));
         tank.Mass = 9 + tank.Level * 0.08;
         if (tank.Health > tank.MaxHealth)
             tank.Health = tank.MaxHealth;
@@ -60,41 +60,18 @@ internal static class TankStats
     }
 
     public static double MoveSpeed(TankEntity tank) =>
-        (210 / 25.0) * tank.Class.Speed * (1 + tank.Stats[Move] * 0.155) * (1 - Math.Min(0.18, tank.Level * 0.003));
+        DiepView.Px((210 / 25.0) * tank.Class.Speed * (1 + tank.Stats[Move] * 0.155) * (1 - Math.Min(0.18, tank.Level * 0.003)));
 
-    /// <summary>Barrel/turret scale. Bosses use diepcustom sizeFactor, not Radius/50.</summary>
+    /// <summary>Barrel scale in diep units. Players track body/50. Bosses use the engine size factor.</summary>
     public static double GunScale(TankEntity tank)
     {
+        if (tank.IsArenaCloser)
+            return 175.0 / 50.0 * DiepView.Scale;
         if (!tank.IsBoss)
             return tank.Radius / 50.0;
-        return tank.ClassId switch
-        {
-            TankId.Guardian or TankId.Summoner or TankId.Defender => 1.0,
-            TankId.FallenBooster or TankId.FallenOverlord => 1.1,
-            _ => 1.0
-        };
+        var factor = tank.ClassId is TankId.FallenBooster or TankId.FallenOverlord ? DiepView.FallenScale : 1.0;
+        return factor * DiepView.Scale;
     }
-
-    /// <summary>
-    /// Extra mount distance so polygon-boss barrels start nearer the rim.
-    /// Fallen bosses and Defender keep authored Distance.
-    /// </summary>
-    public static double BarrelDistance(TankEntity tank, BarrelDef def)
-    {
-        if (!tank.IsBoss || tank.ClassId is TankId.Defender or TankId.FallenBooster or TankId.FallenOverlord)
-            return def.Distance;
-        var scale = Math.Max(0.2, GunScale(tank));
-        var rim = tank.ClassId switch
-        {
-            TankId.Guardian => tank.Radius * 0.10,
-            TankId.Summoner => tank.Radius * 0.16,
-            _ => 0
-        };
-        return def.Distance + rim / scale;
-    }
-
-    public static double TurretGunScale(TankEntity tank) =>
-        tank.IsBoss ? 0.62 : GunScale(tank);
 
     public static double ReloadTicks(TankEntity tank) =>
         15 * Math.Pow(0.914, tank.Stats[Reload]);

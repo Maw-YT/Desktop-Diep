@@ -15,7 +15,8 @@ internal static class ShapeMotion
     public static void TickCrasher(ShapeEntity s, IReadOnlyList<TankEntity> tanks)
     {
         TankEntity? target = null;
-        var best = 640.0 * 640.0;
+        var best = DiepView.Px(640);
+        best *= best;
         foreach (var tank in tanks)
         {
             if (!tank.Alive || tank.Destroy.Active || tank.IsArenaCloser)

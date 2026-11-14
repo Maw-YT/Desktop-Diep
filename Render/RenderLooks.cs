@@ -36,12 +36,6 @@ internal static class RenderLooks
         _ => DiepColors.Stroke(fill)
     };
 
-    public static double StrokeWidth(RenderStyle style, bool bullet = false) => style switch
-    {
-        RenderStyle.Old => bullet ? 2.8 : 4.0,
-        _ => bullet ? 2.2 : 3.2
-    };
-
     public static Brush Flat(DrawCache draw, Color color) => draw.Brush(color);
 
     /// <param name="localRotationDeg">

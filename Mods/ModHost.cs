@@ -76,6 +76,7 @@ internal sealed class ModHost : IDisposable
         Timers.Clear();
         Draw.Clear();
         TankCatalog.ClearModRegistrations();
+        ModContent.Clear();
         _mods.Clear();
         _inactive.Clear();
         _started = false;
@@ -280,6 +281,7 @@ internal sealed class ModHost : IDisposable
         Events.Clear();
         Timers.Clear();
         TankCatalog.ClearModRegistrations();
+        ModContent.Clear();
 
         foreach (var dir in Directory.EnumerateDirectories(ModsRoot))
         {

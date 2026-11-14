@@ -8,7 +8,8 @@ public enum ShapeKind
     Triangle,
     Pentagon,
     AlphaPentagon,
-    Crasher
+    Crasher,
+    Custom
 }
 
 public sealed class ShapeEntity
@@ -23,6 +24,10 @@ public sealed class ShapeEntity
     public double ShapeVelocity = 1;
     public double RamDamage;
     public int Xp;
+    public int Sides;
+    public int Team;
+    public string? CustomId;
+    public string? Shader;
     public ShapeKind Kind;
     public Color Fill;
     public DestroyAnim Destroy { get; } = new();
@@ -97,8 +102,12 @@ public sealed class BulletEntity
     public ProjectileKind Kind;
     public Color Fill;
     public bool Visible = true;
+    public int Team;
+    public string? CustomId;
+    public string? Shader;
     public BarrelState[] Guns = [];
     public DestroyAnim Destroy { get; } = new();
+    public DamageFlash Flash { get; } = new();
 
     public double DrawX(double t) => Interp.Lerp(PrevX, X, t);
     public double DrawY(double t) => Interp.Lerp(PrevY, Y, t);
@@ -112,6 +121,7 @@ public sealed class BulletEntity
         PrevAngle = Angle;
         PrevOpacity = Opacity;
         Destroy.Capture();
+        Flash.Capture();
         foreach (var g in Guns)
             g.Capture();
     }
@@ -163,6 +173,10 @@ public sealed class TankEntity
     public bool AiEnabled = true;
     public bool IsArenaCloser;
     public bool IsBoss;
+    public bool IsMothership;
+    public int Team;
+    public string? Shader;
+    public bool IsPet => !IsBoss && !IsArenaCloser && !IsMothership;
     public string? BossAltName;
     public int BossXp = 3000;
     public double Respawn;

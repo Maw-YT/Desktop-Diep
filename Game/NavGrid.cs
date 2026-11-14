@@ -39,7 +39,7 @@ internal sealed class NavGrid
         _rows = rows;
         Array.Clear(_blocked);
         var blockedCount = 0;
-        const double minGap = 48;
+        var minGap = DiepView.Px(48);
 
         for (var y = 0; y < rows; y++)
         {

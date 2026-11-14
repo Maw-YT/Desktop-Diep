@@ -97,6 +97,10 @@ internal sealed class CollisionSystem
                 return;
         }
 
+        if (Teams.Allied(TeamOf(world, a), TeamOf(world, b)) &&
+            (a.Kind == PhysKind.Bullet || b.Kind == PhysKind.Bullet))
+            return;
+
         if (world.Mods?.EmitCancel("collision", e =>
             {
                 e["kind_a"] = a.Kind.ToString();
@@ -164,6 +168,13 @@ internal sealed class CollisionSystem
         _ => -1
     };
 
+    private static int TeamOf(GameWorld world, PhysBody body) => body.Kind switch
+    {
+        PhysKind.Tank => world.Tanks[body.Index].Team,
+        PhysKind.Bullet => world.Bullets[body.Index].Team,
+        _ => 0
+    };
+
     private static bool SweptHit(GameWorld world, PhysBody a, PhysBody b)
     {
         if (a.Kind != PhysKind.Bullet && b.Kind != PhysKind.Bullet)
@@ -207,6 +218,8 @@ internal sealed class CollisionSystem
         var t2 = world.Tanks[b.Index];
         if (t1.IsArenaCloser && t2.IsArenaCloser)
             return true;
+        if (Teams.Allied(t1.Team, t2.Team))
+            return true;
         if (!t1.IsArenaCloser)
             world.HurtTank(t1, t2.IsArenaCloser ? 80 : TankStats.BodyDamage(t2), t2);
         if (!t2.IsArenaCloser)
@@ -244,10 +257,11 @@ internal sealed class CollisionSystem
             FinishBullet(bullet);
             return true;
         }
+        if (!ModContent.AllowHit(world, bullet, tank))
+            return true;
         var killer = world.FindTank(bullet.OwnerId);
         world.HurtTank(tank, bullet.Damage, killer);
-        bullet.Health -= 1;
-        FinishBullet(bullet);
+        Chip(bullet);
         return true;
     }
 
@@ -261,10 +275,8 @@ internal sealed class CollisionSystem
             return true;
         if (ba.OwnerId == bb.OwnerId && Projectile.IsDroneLike(ba.Kind) && Projectile.IsDroneLike(bb.Kind))
             return true;
-        ba.Health -= 1;
-        bb.Health -= 1;
-        FinishBullet(ba);
-        FinishBullet(bb);
+        Chip(ba);
+        Chip(bb);
         return true;
     }
 
@@ -276,11 +288,20 @@ internal sealed class CollisionSystem
         var shape = world.Shapes[shapeBody.Index];
         if (bullet.Destroy.Active || shape.Destroy.Active)
             return;
+        if (!ModContent.AllowHit(world, bullet, shape))
+            return;
         ShapeMotion.NudgeOrbit(shape, 0.18);
         shape.Hurt(bullet.Damage);
-        bullet.Health -= 1;
         if (shape.Health <= 0)
             world.KillShape(shape, world.FindTank(bullet.OwnerId));
+        Chip(bullet);
+    }
+
+    private static void Chip(BulletEntity bullet)
+    {
+        bullet.Health -= 1;
+        if (bullet.Health > 0)
+            bullet.Flash.Hit();
         FinishBullet(bullet);
     }
 

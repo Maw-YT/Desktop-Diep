@@ -144,8 +144,8 @@ public sealed class PetBrain
         tank.Angle = _aim;
 
         // Stand farther from bigger targets (radius-scaled orbit / engagement).
-        var preferred = (ram ? 8 : Enemy is null ? 75 : 110) + tank.Radius + tr * 2.6;
-        var range = Math.Max(Enemy is null ? 260.0 : 340.0, preferred + 90);
+        var preferred = DiepView.Px(ram ? 8 : Enemy is null ? 75 : 110) + tank.Radius + tr * 2.6;
+        var range = Math.Max(DiepView.Px(Enemy is null ? 260.0 : 340.0), preferred + DiepView.Px(90));
         var canShoot = hasLos && CanShoot(world, tank.X, tank.Y, AimX, AimY);
 
         // Always hold a ring around the target — never path into its center (that was
@@ -153,8 +153,8 @@ public sealed class PetBrain
         RingGoal(tank.X, tank.Y, AimX, AimY, preferred, 0, out var gx, out var gy);
         if (Fleeing)
         {
-            gx = tank.X - Math.Cos(look) * Math.Max(220, preferred);
-            gy = tank.Y - Math.Sin(look) * Math.Max(220, preferred);
+            gx = tank.X - Math.Cos(look) * Math.Max(DiepView.Px(220), preferred);
+            gy = tank.Y - Math.Sin(look) * Math.Max(DiepView.Px(220), preferred);
         }
         else if (!ram && hasLos)
         {
@@ -182,8 +182,8 @@ public sealed class PetBrain
             gy = fy;
         }
 
-        gx = Math.Clamp(gx, 80, Math.Max(80, world.Width - 80));
-        gy = Math.Clamp(gy, 80, Math.Max(80, world.Height - 80));
+        gx = Math.Clamp(gx, DiepView.Px(80), Math.Max(DiepView.Px(80), world.Width - DiepView.Px(80)));
+        gy = Math.Clamp(gy, DiepView.Px(80), Math.Max(DiepView.Px(80), world.Height - DiepView.Px(80)));
         if (world.CollideWindows)
             world.Nav.SnapGoal(ref gx, ref gy);
 
@@ -316,7 +316,8 @@ public sealed class PetBrain
             var d = Math.Sqrt(dx * dx + dy * dy);
             if (d < 1)
                 continue;
-            var w = (220 - Math.Min(220, d)) / d;
+            var push = DiepView.Px(220);
+            var w = (push - Math.Min(push, d)) / d;
             rx += dx * w;
             ry += dy * w;
         }
@@ -370,7 +371,7 @@ public sealed class PetBrain
     private static double ShotSpeed(TankEntity tank)
     {
         var mul = tank.Barrels.Length > 0 ? tank.Barrels[0].Def.Bullet.Speed : 1;
-        var scale = Math.Max(0.45, tank.Radius / 50.0);
+        var scale = Math.Max(0.15, tank.Radius / 50.0);
         return (20 + tank.Stats[TankStats.BulletSpeed] * 3) * mul * scale + 30 * scale;
     }
 
@@ -378,7 +379,7 @@ public sealed class PetBrain
     {
         cx = Path[^1].X;
         cy = Path[^1].Y;
-        const double reach = 48;
+        var reach = DiepView.Px(48);
         for (var i = 0; i < Path.Count; i++)
         {
             var p = Path[i];
@@ -471,7 +472,8 @@ public sealed class PetBrain
 
     private void PickRoamGoal(TankEntity tank, GameWorld world)
     {
-        var pad = 100.0;
+        var pad = DiepView.Px(100);
+        var minRoam = DiepView.Px(220);
         var w = Math.Max(pad * 2, world.Width - pad * 2);
         var h = Math.Max(pad * 2, world.Height - pad * 2);
         for (var i = 0; i < 8; i++)
@@ -480,7 +482,7 @@ public sealed class PetBrain
             var gy = pad + _rng.NextDouble() * h;
             var dx = gx - tank.X;
             var dy = gy - tank.Y;
-            if (dx * dx + dy * dy < 220 * 220)
+            if (dx * dx + dy * dy < minRoam * minRoam)
                 continue;
             if (world.CollideWindows)
                 world.Nav.SnapGoal(ref gx, ref gy);
@@ -527,6 +529,8 @@ public sealed class PetBrain
         {
             if (other.Id == tank.Id || !other.Alive || other.Destroy.Active || other.IsArenaCloser)
                 continue;
+            if (Teams.Allied(tank.Team, other.Team))
+                continue;
             if (!CanSee(world, tank.X, tank.Y, other.X, other.Y))
                 continue;
             var dx = other.X - tank.X;
@@ -570,8 +574,8 @@ public sealed class PetBrain
     }
 
     private static bool CanSee(GameWorld world, double x0, double y0, double x1, double y1) =>
-        !world.CollideWindows || world.Windows.CanSee(x0, y0, x1, y1, 2);
+        !world.LineBlocked(x0, y0, x1, y1);
 
     private static bool CanShoot(GameWorld world, double x0, double y0, double x1, double y1) =>
-        !world.CollideWindows || world.Windows.CanSee(x0, y0, x1, y1, 10);
+        !world.LineBlocked(x0, y0, x1, y1);
 }

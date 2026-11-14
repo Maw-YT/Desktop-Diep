@@ -44,11 +44,65 @@ internal static class ModApi
         });
         t["selected"] = DynValue.NewCallback((_, _) => EntityProxies.Tank(script, world.Selected, world));
         t["tanks"] = DynValue.NewCallback((_, _) => ListTanks(script, world, _ => true));
-        t["players"] = DynValue.NewCallback((_, _) => ListTanks(script, world, tank => !tank.IsBoss && !tank.IsArenaCloser));
+        t["players"] = DynValue.NewCallback((_, _) => ListTanks(script, world, tank => tank.IsPet));
         t["bosses"] = DynValue.NewCallback((_, _) => ListTanks(script, world, tank => tank.IsBoss));
         t["closers"] = DynValue.NewCallback((_, _) => ListTanks(script, world, tank => tank.IsArenaCloser));
         t["shapes"] = DynValue.NewCallback((_, _) => ListShapes(script, world));
         t["bullets"] = DynValue.NewCallback((_, _) => ListBullets(script, world));
+        t["objects"] = DynValue.NewCallback((_, _) =>
+        {
+            var list = new Table(script);
+            var i = 1;
+            foreach (var obj in world.Objects)
+            {
+                if (obj.Alive)
+                    list[i++] = EntityProxies.Obj(script, obj, world);
+            }
+            return DynValue.NewTable(list);
+        });
+        t["gamemode"] = DynValue.NewCallback((_, a) =>
+        {
+            if (a.Count > 0 && a[0].Type == DataType.String)
+            {
+                world.SetGameMode(GameModes.Parse(a[0].String));
+                AppSettings.SaveFrom(world);
+            }
+            return DynValue.NewString(GameModes.Id(world.Mode));
+        });
+        t["shader"] = DynValue.NewCallback((_, a) =>
+        {
+            if (a.Count > 0)
+                world.ScreenShader = a[0].Type == DataType.String && a[0].String.Length > 0 ? a[0].String : null;
+            return DynValue.NewString(world.ScreenShader ?? "");
+        });
+        t["teams"] = DynValue.NewCallback((_, _) =>
+        {
+            var list = new Table(script);
+            var i = 1;
+            foreach (var team in Teams.For(world.Mode))
+            {
+                var color = Teams.Color(team);
+                list[i++] = new Table(script)
+                {
+                    ["id"] = team,
+                    ["name"] = Teams.Name(team),
+                    ["r"] = color.R / 255.0,
+                    ["g"] = color.G / 255.0,
+                    ["b"] = color.B / 255.0
+                };
+            }
+            return DynValue.NewTable(list);
+        });
+        t["spawn_object"] = DynValue.NewCallback((_, a) =>
+        {
+            if (a.Count < 1 || a[0].Type != DataType.Table)
+                return DynValue.Nil;
+            var obj = ModContent.ReadObject(a[0].Table, null);
+            if (obj is null)
+                return DynValue.Nil;
+            world.AddObject(obj);
+            return EntityProxies.Obj(script, obj, world);
+        });
         t["count"] = DynValue.NewCallback((_, a) => DynValue.NewNumber(CountKind(world, a)));
         t["spawn_tank"] = DynValue.NewCallback((_, a) => SpawnTankFromArgs(script, world, a));
         t["spawn_boss"] = DynValue.NewCallback((_, a) =>
@@ -254,8 +308,11 @@ internal static class ModApi
         var t = new Table(script);
         t["list"] = DynValue.NewCallback((_, _) => StringList(script, TankCatalog.Playable.Select(d => TankCatalog.KeyOf(d.Id))));
         t["bosses"] = DynValue.NewCallback((_, _) => StringList(script, TankCatalog.BossList.Select(d => TankCatalog.KeyOf(d.Id))));
-        t["shapes"] = DynValue.NewCallback((_, _) => StringList(script, Enum.GetNames<ShapeKind>()));
-        t["projectiles"] = DynValue.NewCallback((_, _) => StringList(script, Enum.GetNames<ProjectileKind>()));
+        t["shapes"] = DynValue.NewCallback((_, _) => StringList(script, Enum.GetNames<ShapeKind>().Where(n => n != nameof(ShapeKind.Custom)).Concat(ModContent.ShapeIds)));
+        t["projectiles"] = DynValue.NewCallback((_, _) => StringList(script, Enum.GetNames<ProjectileKind>().Where(n => n != nameof(ProjectileKind.Custom)).Concat(ModContent.ProjectileIds)));
+        t["addons"] = DynValue.NewCallback((_, _) => StringList(script, ModContent.AddonIds));
+        t["shaders"] = DynValue.NewCallback((_, _) => StringList(script, ModContent.ShaderIds));
+        t["gamemodes"] = DynValue.NewCallback((_, _) => StringList(script, Enum.GetValues<GameMode>().Select(GameModes.Id)));
         t["stats"] = DynValue.NewCallback((_, _) =>
         {
             var list = new Table(script);
@@ -278,6 +335,30 @@ internal static class ModApi
             if (!TankCatalog.TryParseId(a[0].String, out var id) || !TankCatalog.TryGet(id, out var def))
                 return DynValue.Nil;
             return StringList(script, def.Upgrades.Select(TankCatalog.KeyOf));
+        });
+        t["register_shader"] = DynValue.NewCallback((_, a) =>
+        {
+            if (a.Count < 1 || a[0].Type != DataType.Table)
+                return DynValue.NewBoolean(false);
+            return DynValue.NewBoolean(ModContent.RegisterShader(a[0].Table));
+        });
+        t["register_projectile"] = DynValue.NewCallback((_, a) =>
+        {
+            if (a.Count < 1 || a[0].Type != DataType.Table)
+                return DynValue.NewBoolean(false);
+            return DynValue.NewBoolean(ModContent.RegisterProjectile(a[0].Table));
+        });
+        t["register_shape"] = DynValue.NewCallback((_, a) =>
+        {
+            if (a.Count < 1 || a[0].Type != DataType.Table)
+                return DynValue.NewBoolean(false);
+            return DynValue.NewBoolean(ModContent.RegisterShape(a[0].Table));
+        });
+        t["register_addon"] = DynValue.NewCallback((_, a) =>
+        {
+            if (a.Count < 1 || a[0].Type != DataType.Table)
+                return DynValue.NewBoolean(false);
+            return DynValue.NewBoolean(ModContent.RegisterAddon(a[0].Table));
         });
         t["register_tank"] = DynValue.NewCallback((_, a) =>
         {
@@ -588,6 +669,30 @@ internal static class ModApi
         return EntityProxies.Tank(script, tank, world);
     }
 
+    private static DynValue SpawnCustomShape(Script script, GameWorld world, string id, Table extras)
+    {
+        double? x = null, y = null;
+        if (NumOpt(extras, "x", out var sx)) x = sx;
+        if (NumOpt(extras, "y", out var sy)) y = sy;
+        var shape = world.SpawnCustomShape(id, x, y);
+        if (NumOpt(extras, "health", out var hp))
+        {
+            shape.MaxHealth = hp;
+            shape.Health = hp;
+        }
+        if (NumOpt(extras, "radius", out var radius))
+            shape.Radius = radius;
+        if (NumOpt(extras, "xp", out var xp))
+            shape.Xp = (int)xp;
+        if (NumOpt(extras, "mass", out var mass))
+            shape.Mass = mass;
+        ApplyFill(extras, c => shape.Fill = c);
+        if (extras.Get("shader").Type == DataType.String)
+            shape.Shader = extras.Get("shader").String;
+        shape.Snap();
+        return EntityProxies.Shape(script, shape, world);
+    }
+
     private static DynValue SpawnShapeFromArgs(Script script, GameWorld world, CallbackArguments a)
     {
         ShapeKind? kind = null;
@@ -598,8 +703,10 @@ internal static class ModApi
         {
             extras = a[0].Table;
             var k = extras.Get("kind");
-            if (k.Type == DataType.String && Enum.TryParse<ShapeKind>(k.String, true, out var parsed))
+            if (k.Type == DataType.String && Enum.TryParse<ShapeKind>(k.String, true, out var parsed) && parsed != ShapeKind.Custom)
                 kind = parsed;
+            else if (k.Type == DataType.String && ModContent.Shape(k.String) is not null)
+                return SpawnCustomShape(script, world, k.String, extras);
             if (NumOpt(extras, "x", out var sx)) x = sx;
             if (NumOpt(extras, "y", out var sy)) y = sy;
             var n = extras.Get("notify");
@@ -608,7 +715,13 @@ internal static class ModApi
         }
         else
         {
-            if (a.Count > 0 && a[0].Type == DataType.String && Enum.TryParse<ShapeKind>(a[0].String, true, out var k))
+            if (a.Count > 0 && a[0].Type == DataType.String && ModContent.Shape(a[0].String) is not null)
+            {
+                double? cx = a.Count > 1 && a[1].Type == DataType.Number ? a[1].Number : null;
+                double? cy = a.Count > 2 && a[2].Type == DataType.Number ? a[2].Number : null;
+                return EntityProxies.Shape(script, world.SpawnCustomShape(a[0].String, cx, cy), world);
+            }
+            if (a.Count > 0 && a[0].Type == DataType.String && Enum.TryParse<ShapeKind>(a[0].String, true, out var k) && k != ShapeKind.Custom)
                 kind = k;
             if (a.Count > 1 && a[1].Type == DataType.Number) x = a[1].Number;
             if (a.Count > 2 && a[2].Type == DataType.Number) y = a[2].Number;
@@ -655,9 +768,18 @@ internal static class ModApi
             ownerId = (int)owner.Number;
 
         var kind = ProjectileKind.Bullet;
-        if (opts.Get("kind").Type == DataType.String &&
-            Enum.TryParse<ProjectileKind>(opts.Get("kind").String, true, out var parsed))
-            kind = parsed;
+        string? customKind = null;
+        if (opts.Get("kind").Type == DataType.String)
+        {
+            var kindName = opts.Get("kind").String;
+            if (Enum.TryParse<ProjectileKind>(kindName, true, out var parsed) && parsed != ProjectileKind.Custom)
+                kind = parsed;
+            else if (ModContent.Projectile(kindName) is not null)
+            {
+                kind = ProjectileKind.Custom;
+                customKind = kindName;
+            }
+        }
 
         var fill = DiepColors.Tank;
         var fillT = opts.Get("fill");
@@ -675,6 +797,12 @@ internal static class ModApi
         }
 
         var shot = world.SpawnBulletFromMod(x, y, vx, vy, angle, radius, damage, health, life, ownerId, kind, fill, visible);
+        if (shot is not null && customKind is not null)
+            ModContent.ConfigureShot(shot, customKind);
+        if (shot is not null && opts.Get("team").Type == DataType.Number)
+            shot.Team = (int)opts.Get("team").Number;
+        if (shot is not null && opts.Get("shader").Type == DataType.String)
+            shot.Shader = opts.Get("shader").String;
         return EntityProxies.Bullet(script, shot, world);
     }
 
@@ -687,6 +815,7 @@ internal static class ModApi
             TankProxy tank => world.TryRemoveTank(tank.Raw),
             ShapeProxy shape => KillOrDropShape(world, shape.Raw),
             BulletProxy bullet => KillBullet(bullet.Raw),
+            ObjectProxy obj => world.RemoveObject(obj.Raw),
             _ => false
         };
     }
@@ -710,7 +839,8 @@ internal static class ModApi
         return kind.ToLowerInvariant() switch
         {
             "tank" or "tanks" => world.Tanks.Count,
-            "player" or "players" => world.Tanks.Count(t => !t.IsBoss && !t.IsArenaCloser),
+            "player" or "players" => world.Tanks.Count(t => t.IsPet),
+            "object" or "objects" => world.Objects.Count(o => o.Alive),
             "boss" or "bosses" => world.Tanks.Count(t => t.IsBoss),
             "shape" or "shapes" => world.Shapes.Count(s => !s.Destroy.Active),
             "bullet" or "bullets" => world.Bullets.Count(b => !b.Destroy.Active),

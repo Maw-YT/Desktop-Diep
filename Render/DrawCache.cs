@@ -51,18 +51,56 @@ internal sealed class DrawCache
             VisualTreeHelper.GetDpi(_dpiOwner).PixelsPerDip);
     }
 
-    public static Geometry RegularPolygon(int sides, double radius, double? vertexOffset = null)
+    public static Geometry RegularPolygon(int sides, double radius, double? vertexOffset = null, double chamfer = 0)
     {
-        var g = new StreamGeometry();
-        using var ctx = g.Open();
-        var offset = vertexOffset ?? (sides == 4 ? Math.PI / 4 : -Math.PI / 2);
+        if (sides < 3)
+            sides = 3;
+        var offset = vertexOffset ?? (sides == 3 ? 0 : sides % 2 == 0 ? Math.PI / sides : 0);
+        var pts = new Point[sides];
         for (var i = 0; i < sides; i++)
         {
             var a = offset + i * (Math.PI * 2 / sides);
-            var p = new Point(Math.Cos(a) * radius, Math.Sin(a) * radius);
-            if (i == 0) ctx.BeginFigure(p, true, true);
-            else ctx.LineTo(p, true, false);
+            pts[i] = new Point(Math.Cos(a) * radius, Math.Sin(a) * radius);
         }
+        return chamfer > 0.4 ? Chamfered(pts, chamfer) : Closed(pts);
+    }
+
+    public static Geometry Chamfered(IReadOnlyList<Point> pts, double radius)
+    {
+        var n = pts.Count;
+        if (n < 3 || radius <= 0.4)
+            return Closed(pts);
+        var cut = new List<Point>(n * 2);
+        for (var i = 0; i < n; i++)
+        {
+            var prev = pts[(i - 1 + n) % n];
+            var cur = pts[i];
+            var next = pts[(i + 1) % n];
+            var dpx = cur.X - prev.X;
+            var dpy = cur.Y - prev.Y;
+            var dnx = next.X - cur.X;
+            var dny = next.Y - cur.Y;
+            var lp = Math.Sqrt(dpx * dpx + dpy * dpy);
+            var ln = Math.Sqrt(dnx * dnx + dny * dny);
+            if (lp < 1e-3 || ln < 1e-3)
+            {
+                cut.Add(cur);
+                continue;
+            }
+            var r = Math.Min(radius, Math.Min(lp, ln) * 0.32);
+            cut.Add(new Point(cur.X - dpx / lp * r, cur.Y - dpy / lp * r));
+            cut.Add(new Point(cur.X + dnx / ln * r, cur.Y + dny / ln * r));
+        }
+        return Closed(cut);
+    }
+
+    private static Geometry Closed(IReadOnlyList<Point> pts)
+    {
+        var g = new StreamGeometry { FillRule = FillRule.Nonzero };
+        using var ctx = g.Open();
+        ctx.BeginFigure(pts[0], true, true);
+        for (var i = 1; i < pts.Count; i++)
+            ctx.LineTo(pts[i], true, false);
         g.Freeze();
         return g;
     }
@@ -71,10 +109,10 @@ internal sealed class DrawCache
     {
         var g = new StreamGeometry();
         using var ctx = g.Open();
-        var inner = radius * 0.45;
+        var inner = radius * 0.38;
         for (var i = 0; i < points * 2; i++)
         {
-            var a = -Math.PI / 2 + i * (Math.PI / points);
+            var a = i * (Math.PI / points);
             var r = (i & 1) == 0 ? radius : inner;
             var p = new Point(Math.Cos(a) * r, Math.Sin(a) * r);
             if (i == 0) ctx.BeginFigure(p, true, true);

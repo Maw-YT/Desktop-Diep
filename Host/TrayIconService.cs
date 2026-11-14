@@ -17,6 +17,7 @@ internal sealed class TrayIconService : IDisposable
     private readonly WinForms.ToolStripMenuItem _windowsItem;
     private readonly WinForms.ToolStripMenuItem _cursorItem;
     private readonly WinForms.ToolStripMenuItem _renderItem;
+    private readonly WinForms.ToolStripMenuItem _modeItem;
     private readonly WinForms.ToolStripMenuItem _tanksItem;
     private readonly WinForms.ToolStripMenuItem _shapesItem;
     private readonly WinForms.ToolStripMenuItem _bossesItem;
@@ -47,6 +48,7 @@ internal sealed class TrayIconService : IDisposable
     public event Action? ReloadMods;
     public event Action<string, bool>? SetModEnabled;
     public event Action<RenderStyle>? SetRenderStyle;
+    public event Action<GameMode>? SetGameMode;
 
     public TrayIconService()
     {
@@ -59,6 +61,14 @@ internal sealed class TrayIconService : IDisposable
         _windowsItem = new WinForms.ToolStripMenuItem("Window collisions") { CheckOnClick = true, Checked = true };
         _cursorItem = new WinForms.ToolStripMenuItem("Cursor collisions") { CheckOnClick = true, Checked = true };
         _renderItem = new WinForms.ToolStripMenuItem("Render");
+        _modeItem = new WinForms.ToolStripMenuItem("Gamemode");
+        foreach (GameMode mode in Enum.GetValues<GameMode>())
+        {
+            var picked = mode;
+            var item = new WinForms.ToolStripMenuItem(GameModes.Label(picked));
+            item.Click += (_, _) => { if (!_rebuilding) SetGameMode?.Invoke(picked); };
+            _modeItem.DropDownItems.Add(item);
+        }
         foreach (RenderStyle style in Enum.GetValues<RenderStyle>())
         {
             var s = style;
@@ -98,6 +108,7 @@ internal sealed class TrayIconService : IDisposable
         _menu.Items.Add(_statsItem);
         _menu.Items.Add(_modsItem);
         _menu.Items.Add(_renderItem);
+        _menu.Items.Add(_modeItem);
         _menu.Items.Add(new WinForms.ToolStripSeparator());
         _menu.Items.Add(_debugItem);
         _menu.Items.Add(_pauseItem);
@@ -158,6 +169,7 @@ internal sealed class TrayIconService : IDisposable
             RebuildClass(_world);
             RebuildStats(_world);
             RebuildRender(_world);
+            RebuildGamemode(_world);
             RebuildBosses(_world);
             RebuildMods(_world);
         }
@@ -334,6 +346,16 @@ internal sealed class TrayIconService : IDisposable
             if (_renderItem.DropDownItems[i] is not WinForms.ToolStripMenuItem item)
                 continue;
             item.Checked = (RenderStyle)i == world.RenderStyle;
+        }
+    }
+
+    private void RebuildGamemode(GameWorld world)
+    {
+        for (var i = 0; i < _modeItem.DropDownItems.Count; i++)
+        {
+            if (_modeItem.DropDownItems[i] is not WinForms.ToolStripMenuItem item)
+                continue;
+            item.Checked = (GameMode)i == world.Mode;
         }
     }
 

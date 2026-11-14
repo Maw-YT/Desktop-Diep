@@ -84,7 +84,8 @@ internal static class Projectile
                 shot.Mass = 3;
                 shot.Life = Math.Max(8, (600 * barrel.Bullet.LifeLength) / 8);
                 shot.Angle = Random.Shared.NextDouble() * Math.PI * 2;
-                shot.Spin = (Random.Shared.NextDouble() - 0.5) * 0.12;
+                shot.PrevAngle = shot.Angle;
+                shot.Spin = 0;
                 shot.PushFactor = 4;
                 break;
             case ProjectileKind.Drone:
@@ -150,7 +151,7 @@ internal static class Projectile
 
         if (IsDroneLike(b.Kind))
             TickDrone(b, owner, shapes, tanks);
-        else if (b.Kind is ProjectileKind.Bullet or ProjectileKind.Rocket or ProjectileKind.Skimmer or ProjectileKind.Croc)
+        else if (b.Kind is ProjectileKind.Bullet or ProjectileKind.Rocket or ProjectileKind.Skimmer or ProjectileKind.Croc or ProjectileKind.Custom)
         {
             if (b.Age > 1 && b.Accel > 0)
                 DiepPhysics.MaintainVelocity(ref b.Vx, ref b.Vy, b.MovementAngle, b.Accel);
@@ -168,7 +169,7 @@ internal static class Projectile
             return;
         }
 
-        var hunt = NearestHunt(b, owner, shapes, tanks, b.Kind == ProjectileKind.Swarm ? 800 : 400);
+        var hunt = NearestHunt(b, owner, shapes, tanks, DiepView.Px(b.Kind == ProjectileKind.Swarm ? 800 : 400));
         if (hunt is { } t)
         {
             b.RestCycle = false;
@@ -187,7 +188,8 @@ internal static class Projectile
         {
             b.Angle = angle;
             var dist2 = Dist2(b.X, b.Y, aimX, aimY);
-            var focus = 240.0 * 240.0;
+            var focus = DiepView.Px(240);
+            focus *= focus;
             if (dist2 < focus / 7)
                 angle += Math.PI;
             else if (dist2 < focus)
@@ -209,7 +211,8 @@ internal static class Projectile
         var dx = b.X - owner.X;
         var dy = b.Y - owner.Y;
         var dist2 = dx * dx + dy * dy;
-        var rest = 160.0 * 160.0;
+        var rest = DiepView.Px(160);
+        rest *= rest;
         if (dist2 <= rest && b.RestCycle)
         {
             DiepPhysics.MaintainVelocity(ref b.Vx, ref b.Vy, b.Angle, accel / 6);
@@ -238,6 +241,8 @@ internal static class Projectile
         foreach (var tank in tanks)
         {
             if (!tank.Alive || tank.Destroy.Active || (owner is not null && tank.Id == owner.Id))
+                continue;
+            if (Teams.Allied(b.Team, tank.Team))
                 continue;
             if (Dist2(ox, oy, tank.X, tank.Y) > nearOwner)
                 continue;
